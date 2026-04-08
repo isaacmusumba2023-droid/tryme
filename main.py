@@ -1,3 +1,5 @@
+from streamlit_gsheets import GSheetsConnection
+from datetime import date
 import streamlit as st
 import pandas as pd
 from streamlit_option_menu import option_menu
@@ -8,6 +10,14 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+#constants variables
+G_CODE=["G-002","G-003","G-004","G-005","G-006","G-007"]
+MODEL=["3406","C15","TAD1614GE","C15","3412"]
+TYPE=["CAT","VOLVO","CUMMINS","BAUDOUIN"]
+AREA=["SK","EK","WORKSHOP","PDI"]
+FLD=["NORTH","SEK","WAFRA","WORKSHOP"]
+USER=["ESP KOC","WORKSHOP","OFF-HIRE","BURGAN_YRD"]
+
 
 # calling style.css
 def load_css(css_file):
@@ -47,7 +57,87 @@ with st.sidebar:
         }
     )
 if selected=="ASSET_FIELD":
-    st.info("GENSET ASSETS UPDATE")
+    st.info("UPDATED DAILY GENSET_LOCATIONS")
+    "---"
+    #connect to Gsheet and read it
+    conn=st.connection("gsheets",type=GSheetsConnection)
+    df=conn.read(spreadsheet='https://docs.google.com/spreadsheets/d/1C6DkS5MbMbjmNVVpYEXUtXOLMsqbkj-Ob67htEesQEw/edit?gid=0#gid=0',ttl=0)
+    st.dataframe(df,height=600,use_container_width=True,hide_index=True)
+    #reading done then add new row
+    st.write("Adding new genset record")
+    with st.form("NEW_RECORD"):
+        c1,c2,c3,c4,c5=st.columns(5)
+        with c1:
+            engine_code=st.selectbox("SELECT_ENGINE_CODE:", options=G_CODE)
+            serial_number=st.text_input("SELECT_SERIAL_NUMBER:")
+            model=st.selectbox("ENTER_MODEL:",options=MODEL)
+            type_1=st.selectbox("SELECT TYPE:",options=TYPE)
+        with c2:
+            kva_form=st.number_input("ENTER_KVA:")
+            manuf_form=st.date_input("ENTER_MANUFACTURE_FORM:",min_value=date(1900,1,1),max_value=date.today())
+            service_yr=st.date_input("SERVICE YR IN KOC:",min_value=date(1900,1,1),max_value=date.today())
+            run_hr=st.number_input("ENTER RUNNING Hrs:")
+        with c3:
+            crew=st.number_input("ENTER_CREW:")
+            gc=st.number_input("ENTER_GC:")
+            area=st.selectbox("ENTER_AREA:",options=AREA)
+            appr_kva=st.number_input("ENTER_APPR_KVA:")
+        with c4:
+            location=st.text_input("ENTER_LOCATION:")
+            fields=st.selectbox("SELECT_FIELD:",options=FLD)
+            user=st.selectbox("SELECT USER:",options=USER)
+            move_date=st.date_input("ENTER_MOVEMENT_DATE:",min_value=date(1900,1,1),max_value=date.today())
+        with c5:
+            moved_from=st.text_input("ENTER_MOVED_FROM:")
+            reason=st.text_input("ENTER_REASON:")
+            comment=st.text_input("ENTER_COMMENT:")
+            button_1=st.form_submit_button("NEW_RECORD ADDED")
+            if button_1:
+                if engine_code and serial_number is not None:
+                    new_data=pd.DataFrame([{
+                        "Engine_Code":engine_code,
+                        "Generator S/N":serial_number,
+                        "Model":model,
+                        "Type":type_1,
+                        "KVA":kva_form,
+                        "Manuf_Year":manuf_form,
+                        "Service_Year_in_KOC":service_yr,
+                        "Run_Hrs":run_hr,
+                        "Crew":crew,
+                        "GC":gc,
+                        "Area":area,
+                        "APPR_KVA":appr_kva,
+                        "Location":location,
+                        "Field":fields,
+                        "User":user,
+                        "Movement_Date":move_date,
+                        "Moved_From":moved_from,
+                        "Reason_Complain":reason,
+                        "Comment":comment,
+                    }])
+                    updated_data=pd.concat([df,new_data],ignore_index=True)
+                    conn.update(spreadsheet=df,data=updated_data)
+                    st.success("Record added to database")
+                    st.cache_data.clear()
+                    st.rerun()
+                    st.error("enter required fields")
+#editing updated data
+    st.write("Editing updated data")
+    edited_df=st.data_editor(df,
+                             num_rows="dynamic",
+                             use_container_width=True,
+                             key="df_editor"
+    )
+    if st.button("EDITE RECORD",key="save_edited_data"):
+        if not edited_df.equals(df):
+            conn.update(spreadsheet=df,data=edited_df)
+            st.success("Record edited in database")
+            st.cache_data.clear()
+            st.rerun()
+        else:
+            st.error("Record not edited in database")
+
+
 elif selected=="PART_NUMBERS":
     st.info("GENSET PART_NUMBERS UPDATE")
     option = ["CATERPILLAR", "VOLVO", "CUMMINS", "BAUDOUIN"]

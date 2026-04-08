@@ -1,0 +1,15 @@
+
+[connections.gsheets]
+spreadsheet = "https://docs.google.com/spreadsheets/d/xxxxxxx/edit#gid=0"
+
+# From your JSON key file
+type = "service_account"
+project_id = "beaming-bliss-492519-v0"
+private_key_id = "77471e79d3680024afab6e1349a7878be5dd426c"
+private_key = "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDoRLu37Qb8DMtD\nSdVrrCXyloZPXkBnxIhsAOkQ8kLxwkbZ4HH327cCRE7e5B2V0UbzcXwkay9fAZV/\nIrWaQeLF+aW/5wlfa/MOyS0hgWyrtXoY04Lvjy+spZZPvkzyX0lcy7bB9X7QLmkm\n1QeWJo+OIS/l5IKhTHsyjHfYEh1hsQcbjNFnkiIGWIL7RGdoBtVg4HNLVycafojK\nOXw71fDUnLJiI+V75fI44ryu39IQeVkUsEpwabhEBBJ23Ib/tOjNiOFuyVLXIdgf\naWFfXVD3dFh0AZAm+qYQOtDs1O2sgSShn6YYIEXjktQNaWvpISMM/l9G6tr9OB0w\nanzbS6yLAgMBAAECggEAB4z4d0W21OnLj8/uJrZtc2HuUtUzDcyHTM+IxBrED1zr\n9bhErDSR0fqLf9Z1mcG4Z0CYswxi+VkxVXU45x9eMmZnu4HUvaviNmhW1cCB2mEn\na3gwyP3kJF4rsULz+GsdlO0wb0S+TyE7HN6PBRQS1aGBj50qm/jDBoUnfjg0iVDq\nmZ6/k2SxC9mosnMvYvBWc08RMbMQkKXDyYrz40p64M7QyfYZajWeNeCvd6v4R0X5\nmbZLKdmlWoFeyO8yEj4cpzI7RqIqf+rH/DuKD3FXj9TSXlpkOP5W/UfP3CdnZfQr\nijVqMcu6DHNswlIFLr19zn0VUuyEqzEYVfk1iRLHXQKBgQD3XiC8lF9HqtdHoUC7\noLDu11i2DmH7Mr1SyWFNCM0ZOpvRqyQGwrfossAd2UaPzX6pFg4Wo73k61AtdG2k\nBFpikFDdmGlv0LMZ1R3oHTVwr+Jc5cHlQDNHj+sr6Y63XEWespUNj/NSw2YzqqJ4\nUh8Q4+moB5goiwBPSpgyVii0HwKBgQDwX7dHGEIe1+fISSVlOubyS5X6TqZvaNOa\na3UPoNDymlczaVRqytbe/OztfviciEfnuepAwmuiyKogc6+Xh3ALo6sw+TpSKapq\nDoMxSPTeJ+wUDBWpp1O3tItY1fFAyM3wOr9T1d5DjRooIv+6AIwg8UevncmVdmRR\n8eRfwR5aFQKBgDjX9IXhQpPhel8HeyyinIYGDminnXRwEHl5tVZSc28cvLnNrhWv\noTtj+CnjyAc7naOVYd9p+TUlreMEIj3SkkKcDzkc0P3U45NIGftA2wruIAJg+dGI\nk0AanlwU66rPFWCGgSIAtlWKeW3eBD/J/0GOXh8yv5BxgLy304mdqvTZAoGBAMDp\nwJjxUheY5a9rbPS6eiEZIovZ1V9yfOjgtvlM8oTR84wSS6rNkfcyfB/7GCHgifzi\ny6sfnezuKQOUdOcizny45SqPywun3tnxPb8vMz6cQa6xKC2ZWeoEnxUz1sRMpGLZ\nczYgXZpPQx/VPvGTgOLrYcIC24b1lnvhq4xh3C8lAoGBALl26o139AS6RaQRHDOR\nlpu0GU1Y5nTa6QQ3xMJTpJJpA2EGUKyqQc0CuWTPB8EHF9VxQ/pvy2vJrq88md+v\n4lL/d0pqs8+KTnOPCjwm5ZLZYhUgqR4JGdRQJeSLLm8u2vMNBhDASE8PGxEgUWiM\nKBW7h37U4/ianQyOJ94F7is+\n-----END PRIVATE KEY-----\n"
+client_email = "isaac-iam-gserviceaccount-com@beaming-bliss-492519-v0.iam.gserviceaccount.com"
+client_id = "108845003866665877545"
+auth_uri = "https://accounts.google.com/o/oauth2/auth"
+token_uri =  "https://oauth2.googleapis.com/token"
+auth_provider_x509_cert_url =  "https://www.googleapis.com/oauth2/v1/certs"
+client_x509_cert_url = "https://www.googleapis.com/robot/v1/metadata/x509/isaac-iam-gserviceaccount-com%40beaming-bliss-492519-v0.iam.gserviceaccount.com"

@@ -2,3 +2,4 @@ streamlit-option-menu
 streamlit
 panda
 css
+st-gsheets-connection
