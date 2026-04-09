@@ -61,7 +61,7 @@ if selected=="ASSET_FIELD":
     "---"
     #connect to Gsheet and read it
     conn=st.connection("gsheets",type=GSheetsConnection)
-    df=conn.read(spreadsheet='https://docs.google.com/spreadsheets/d/1C6DkS5MbMbjmNVVpYEXUtXOLMsqbkj-Ob67htEesQEw/edit?gid=0#gid=0',ttl=0)
+    df=conn.read(spreadsheet='https://docs.google.com/spreadsheets/d/1xxp3o51pKuDmxbkQZqQwi8x8DuA3KhiB7A3OGPngDbs/export?format=csv&gid=0',ttl=0)
     st.dataframe(df,height=600,use_container_width=True,hide_index=True)
     #reading done then add new row
     st.write("Adding new genset record")
