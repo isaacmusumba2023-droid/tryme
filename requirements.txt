@@ -3,3 +3,4 @@ streamlit
 panda
 css
 st-gsheets-connection
+supabase
