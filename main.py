@@ -1,5 +1,7 @@
 import streamlit as st
 import pandas as pd
+from django.contrib.sitemaps.views import index
+from sqlalchemy import true
 from streamlit_option_menu import option_menu
 from supabase import create_client, Client
 from datetime import datetime
@@ -12,6 +14,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 #connection to supabase
+
 SUPABASE_URL = "https://zakswtxavrnvghpypmuz.supabase.co"
 SUPABASE_KEY = "sb_publishable_a0FSAnDcjWOpzLkYNDCwfg_moO6MV9A"
 TABLE_NAME = "GENSET ASSET"
@@ -86,7 +89,7 @@ if selected=="ASSET_FIELD":
         try:
             df = fetch_data()
             if not df.empty:
-                st.dataframe(df, use_container_width=True,hide_index=True)
+                st.dataframe(df, use_container_width=True,hide_index=True,height=600)
                 st.info(f"Total Assets: {len(df)}")
             else:
                 st.warning("No assets found in the database.")
@@ -132,22 +135,24 @@ if selected=="ASSET_FIELD":
     elif choice == "Add New Asset":
         st.subheader("Add New Asset")
         with st.form("add_new_asset",clear_on_submit=True):
-            col1, col2 = st.columns(2)
+            col1, col2,col3,col4 = st.columns(4)
             with col1:
                 g_code = st.text_input("G-CODE")
                 serial_no = st.text_input("SERIAL_NO")
                 model = st.selectbox("MODEL", options=MDL)
                 asset_type = st.selectbox("TYPE", options=TYP)
+            with col2:
                 kva = st.number_input("KVA", min_value=0, step=1)
                 user_id = st.number_input("user_id", min_value=0, step=1)
                 manuf_yr = st.date_input("MANUF_YR")
                 service_yr_koc = st.date_input("SERVICE_YR_KOC")
+            with col3:
                 run_hrs = st.number_input("RUN_Hrs", min_value=0, step=1)
-            with col2:
                 area = st.selectbox("AREA", options=AR)
                 appr_kva = st.number_input("APPR_KVA", min_value=0, step=1)
                 location = st.text_input("LOCATION")
                 field = st.selectbox("FIELD", options=FLD)
+            with col4:
                 user = st.selectbox("USER", options=ZR)
                 crew = st.number_input("CREW", min_value=0, step=1)
                 movement_date = st.date_input("MOVEMENT_DATE")
@@ -401,3 +406,17 @@ elif selected=="PART_NUMBERS":
         st.selectbox("SELECT_MAKE",options=cum_make)
     elif selection=="BAUDOUIN":
         st.selectbox("SELECT_MAKE",options=bau_make)
+elif selected=="WORKSHOP":
+    st.info("WORKSHOP GENERATORS")
+    SUPABASE_URL = "https://zakswtxavrnvghpypmuz.supabase.co"
+    SUPABASE_KEY = "sb_publishable_a0FSAnDcjWOpzLkYNDCwfg_moO6MV9A"
+    TABLE_NAME = "GENSET ASSET"
+    supabase=create_client(SUPABASE_URL,SUPABASE_KEY)
+
+    resource=supabase.table("GENSET ASSET").select("*").eq('LOCATION','WORKSHOP').execute()
+    df=resource.data
+    st.dataframe(df, hide_index=True,height=500)
+    D=len(df)
+    st.metric('GENERATORS UNDER WORKSHOP',D,"+")
+
+
