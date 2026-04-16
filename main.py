@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
-from django.contrib.sitemaps.views import index
-from sqlalchemy import true
+
+
 from streamlit_option_menu import option_menu
 from supabase import create_client, Client
 from datetime import datetime
