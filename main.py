@@ -4,7 +4,7 @@ import pandas as pd
 
 from streamlit_option_menu import option_menu
 from supabase import create_client, Client
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 
 st.set_page_config(
@@ -407,16 +407,66 @@ elif selected=="PART_NUMBERS":
     elif selection=="BAUDOUIN":
         st.selectbox("SELECT_MAKE",options=bau_make)
 elif selected=="WORKSHOP":
-    st.info("WORKSHOP GENERATORS")
+    st.info("GENERATORS_UNDER_WORKSHOP")
     SUPABASE_URL = "https://zakswtxavrnvghpypmuz.supabase.co"
     SUPABASE_KEY = "sb_publishable_a0FSAnDcjWOpzLkYNDCwfg_moO6MV9A"
     TABLE_NAME = "GENSET ASSET"
     supabase=create_client(SUPABASE_URL,SUPABASE_KEY)
 
-    resource=supabase.table("GENSET ASSET").select("*").eq('LOCATION','WORKSHOP').execute()
+    resource=supabase.table("GENSET ASSET").select("G-CODE,SERIAL_NO,MODEL,TYPE,KVA,RUN_Hrs,"
+                                                   "AREA,LOCATION,MOVED_FROM,REASON").eq('LOCATION','WORKSHOP').execute()
     df=resource.data
     st.dataframe(df, hide_index=True,height=500)
     D=len(df)
-    st.metric('GENERATORS UNDER WORKSHOP',D,"+")
+    st.metric('TOTAL NUMBER',D,"+")
 
+elif selected=="FLEET MANAGEMENT":
+    st.info("FLEET_MANAGEMENT AND PLANNING" + ':tractor:')
+    @st.cache_data
+    def loading_intial_data():
+        data={
+            "ENGINE ID":['G-029','G-003','G-004','G-007','G-005'],
+            "Last_service Date":[
+                (datetime.now()-timedelta(days=5)).date(),
+                (datetime.now()-timedelta(days=16)).date(),
+                (datetime.now()-timedelta(days=85)).date(),
+                (datetime.now()-timedelta(days=95)).date(),
+                (datetime.now()-timedelta(days=2)).date(),],
+            "TYPE":["DIESEL","GASOLINE","DIESEL","GASOLINE","WATER"]
+        }
+        return pd.DataFrame(data)
+    df=loading_intial_data()
+    #automation logic
+    def calculate_status(last_date):
+        today=datetime.now().date()
+        days_since=(today-last_date).days
+        if days_since>=90:
+            return "CRITICAL(90+Days overdue",":red_circle:"
+        elif days_since>=15:
+            return "Warning(15+Days overdue",":yellow_circle:"
+        else:
+            return "Operational",":green_circle:"
+    df[["status",'Icon']]=df['Last_service Date'].apply(lambda x:pd.Series(calculate_status(x)))
+    df['DaysSince Service']=df['Last_service Date'].apply(lambda x:(datetime.now().date()-x).days)
+
+    col1,col2,col3=st.columns(3)
+    with col1:
+        st.metric('Total Engines',len(df))
+    with col2:
+        urgent=len(df[df['status'].str.contains('Critical')])
+        st.metric('Critical alert',urgent,delta=-urgent,delta_color='inverse')
+    with col3:
+        st.metric('Fleet Health',f"{len(df[df['Icon']==":grean_circle:"])/len(df)*100:.0f}%")
+
+    st.divider()
+    #interactive table with style
+    st.info("Fleet control system")
+    def color_rows(val):
+        if "Critical" in str(val):
+            return 'backgroung-color:#ff4b4b:color:white'
+        if "Warning" in str(val):
+            return 'background-color:#ffa500:color:black'
+        return()
+    st.dataframe(df.style.applymap(color_rows,subset=["status"]),use_container_width=True,hide_index=True,height=300)
+    
 
