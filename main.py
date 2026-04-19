@@ -1,11 +1,13 @@
 import streamlit as st
 import pandas as pd
-
+import plotly.express as px
 
 from streamlit_option_menu import option_menu
 from supabase import create_client, Client
 from datetime import datetime, timedelta
 import os
+
+
 
 st.set_page_config(
     page_title="field options",
@@ -49,7 +51,7 @@ with st.sidebar:
     st.sidebar.image('img.png', width=80)
     selected=option_menu(
         menu_title="GENSET_FIELD",
-        options=["ASSET_FIELD","PART_NUMBERS","MATERIALS_PDI","WORKSHOP","FLEET MANAGEMENT","RISK MANAGEMENT","STORES","KPI_TRACKING"],
+        options=["ASSET_FIELD","PART_NUMBERS","MATERIALS_PDI","WORKSHOP","FLEET MANAGEMENT","RISK MANAGEMENT","STORES","GENERAL_ASSETS"],
         icons=["boxes","gear-wide-connected","geo","tools","speedometer 2","radioactive","bar-chart","recycle"],
         menu_icon="person-gear",
         default_index=0,
@@ -468,5 +470,124 @@ elif selected=="FLEET MANAGEMENT":
             return 'background-color:#ffa500:color:black'
         return()
     st.dataframe(df.style.applymap(color_rows,subset=["status"]),use_container_width=True,hide_index=True,height=300)
-    
 
+
+    # --- 1. DATA PREPARATION ---
+    # (I am using your sample structure here)
+    data = {
+        'Engine_ID': ['ENG-101', 'ENG-202', 'ENG-303', 'ENG-404', 'ENG-505'],
+        'Last_Service': ['2026-04-10', '2026-04-01', '2026-01-15', '2026-04-17', '2026-04-05'],
+        'Service_Type': ['15-Day', '15-Day', '90-Day', '15-Day', '90-Day']
+    }
+
+    df = pd.DataFrame(data)
+
+    # Convert to datetime and strip any time/timezone info for clean comparison
+    df['Last_Service'] = pd.to_datetime(df['Last_Service']).dt.normalize()
+
+    # Calculate Next Service Date
+    df['Next_Service'] = df.apply(
+        lambda x: x['Last_Service'] + pd.Timedelta(days=15 if x['Service_Type'] == '15-Day' else 90),
+        axis=1
+    )
+
+    # Calculate days remaining (using today's date as a normalized timestamp)
+    today_timestamp = pd.Timestamp(datetime.now().date()).normalize()
+    df['Days_Remaining'] = (df['Next_Service'] - today_timestamp).dt.days
+
+    # --- 2. VISUALIZATION ---
+    fig = px.scatter(
+        df,
+        x='Next_Service',
+        y='Days_Remaining',
+        text='Engine_ID',
+        color='Days_Remaining',
+        color_continuous_scale='RdYlGn',
+        title='Fleet Maintenance Schedule',
+        labels={'Next_Service': 'Service Date', 'Days_Remaining': 'Days Remaining'}
+    )
+
+    # THE ULTIMATE FIX:
+    # We use the exact same 'today_timestamp' we used for the calculation
+    # This guarantees the data types match the X-axis exactly.
+    fig.add_vline(
+        x=today_timestamp.timestamp() * 1000,  # Convert to milliseconds for Plotly compatibility
+        line_dash="dash",
+        line_color="red",
+        annotation_text="TODAY"
+    )
+
+    # Clean up layout
+    fig.update_traces(marker=dict(size=12), textposition='top center')
+    fig.update_layout(xaxis_type='date')  # Explicitly tell Plotly this is a date axis
+
+    # --- 3. STREAMLIT DISPLAY ---
+    st.plotly_chart(fig, use_container_width=True)
+elif selected=='GENERAL_ASSETS':
+    st.info("General assets trucking system")
+    url = "https://zakswtxavrnvghpypmuz.supabase.co"
+    key = "sb_publishable_a0FSAnDcjWOpzLkYNDCwfg_moO6MV9A"
+    supabase = create_client(url, key)
+    # to reade data from table
+    response = supabase.table('ASSETS').select("*").execute()
+    df = response.data
+
+    st.dataframe(df, use_container_width=True)
+
+    # adding assets
+    with st.expander("Add New Asset"):
+
+        with st.form(key="my_form", clear_on_submit=True):
+            st.info('ASSET UPLOAD')
+            col1, col2 = st.columns(2)
+            with col1:
+                nn_1 = st.text_input("Enter Asset Name:")
+                description = st.text_input("Enter Description:")
+                rating = st.text_input("Enter Rating:")
+            with col2:
+                location = st.selectbox("Enter Location:", options=['PDI', 'BURGUN', 'WORKSHOP', 'NK', 'EK', 'SK'])
+                quantity = st.number_input("Enter Quantity:", min_value=0, step=1)
+                status = st.selectbox("Select Status:", options=['Active', 'Inactive'])
+            submit = st.form_submit_button(label="Submit")
+            if submit:
+                if nn_1 != '':
+                    new_data = {
+                        'ASSET_NAME': nn_1,
+                        'DESCRIPTION': description,
+                        'RATING': rating,
+                        'LOCATION': location,
+                        'QUANTITY': quantity,
+                        'STATUS': status
+                    }
+                    response = supabase.table('ASSETS').insert(new_data).execute()
+                    st.success(f"Asset {nn_1} has been added")
+                else:
+                    st.error("Enter Asset Name")
+    with st.expander("Edit uploaded Asset"):
+
+        with st.form(key="my_form_2", clear_on_submit=True):
+
+            st.info('ASSET UPLOAD')
+            col1, col2 = st.columns(2)
+            with col1:
+
+                nn_1 = st.text_input("Enter Asset Name:")
+                description = st.text_input("Enter Description:")
+                rating = st.text_input("Enter Rating:")
+            with col2:
+                location = st.selectbox("Enter Location:", options=['PDI', 'BURGUN', 'WORKSHOP', 'NK', 'EK', 'SK'])
+                quantity = st.number_input("Enter Quantity:", min_value=0, step=1)
+                status = st.selectbox("Select Status:", options=['Active', 'Inactive'])
+                submit = st.form_submit_button(label="Submit")
+                if submit:
+                    if nn_1 != '':
+                        new_data = {
+                            'ASSET_NAME': nn_1,
+                            'DESCRIPTION': description,
+                            'RATING': rating,
+                            'LOCATION': location,
+                            'QUANTITY': quantity,
+                            'STATUS': status
+                        }
+                        response = supabase.table('ASSETS').update(new_data).eq('ASSET_NAME', ['Lst']).execute()
+                        st.success(f"Asset {nn_1} has been UPDATED")
