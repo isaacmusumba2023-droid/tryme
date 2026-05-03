@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
-
-
+import numpy as np
+import matplotlib.pyplot as plt
 from streamlit_option_menu import option_menu
 from supabase import create_client, Client
 from datetime import datetime, timedelta
@@ -51,8 +51,8 @@ with st.sidebar:
     st.sidebar.image('img.png', width=80)
     selected=option_menu(
         menu_title="GENSET_FIELD",
-        options=["ASSET_FIELD","PART_NUMBERS","MATERIALS_PDI","WORKSHOP","FLEET MANAGEMENT","RISK MANAGEMENT","STORES","GENERAL_ASSETS"],
-        icons=["boxes","gear-wide-connected","geo","tools","speedometer 2","radioactive","bar-chart","recycle"],
+        options=["OVER_VIEW","ASSET_FIELD","PART_NUMBERS","MATERIALS_PDI","WORKSHOP","FLEET MANAGEMENT","RISK MANAGEMENT","STORES","GENERAL_ASSETS"],
+        icons=["binoculars","boxes","gear-wide-connected","geo","tools","speedometer 2","radioactive","bar-chart","recycle"],
         menu_icon="person-gear",
         default_index=0,
         styles={
@@ -68,8 +68,9 @@ with st.sidebar:
             "nav-link-selected":{"background-color":"#b3d9ff"},
         }
     )
-#pagesetup
+#page setup
 if selected=="ASSET_FIELD":
+    "---"
     st.info("WELCOME TO FIELD_OPERATIONS_ASSETS UPDATES")
     "---"
     @st.cache_resource
@@ -284,6 +285,46 @@ if selected=="ASSET_FIELD":
         except Exception as e:
             st.error(f"Error: {e}")
 
+#DISPLAY MODEL
+elif selected=="OVER_VIEW":
+    st.info("OVER ALL DATA")
+    SUPABASE_URL = "https://zakswtxavrnvghpypmuz.supabase.co"
+    SUPABASE_KEY = "sb_publishable_a0FSAnDcjWOpzLkYNDCwfg_moO6MV9A"
+    TABLE_NAME = "GENSET ASSET"
+    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+    resource_w = supabase.table("GENSET ASSET").select("G-CODE,SERIAL_NO,MODEL,TYPE,KVA,RUN_Hrs,"
+                                                     "AREA,LOCATION,MOVED_FROM,REASON").eq('LOCATION',
+                                                                                           'WORKSHOP').execute()
+    resource_KOC = supabase.table("GENSET ASSET").select("G-CODE,SERIAL_NO,MODEL,TYPE,KVA,RUN_Hrs,"
+                                                       "AREA,LOCATION,MOVED_FROM,REASON").eq('LOCATION',
+                                                                                             'KOC').execute()
+    resource_PDI = supabase.table("GENSET ASSET").select("G-CODE,SERIAL_NO,MODEL,TYPE,KVA,RUN_Hrs,"
+                                                         "AREA,LOCATION,MOVED_FROM,REASON").eq('LOCATION',
+                                                                                               'PDI').execute()
+    df_WORKSHOP = resource_w.data
+    df_KOC=resource_KOC.data
+    df_PDI=resource_PDI.data
+    V_1=len(df_WORKSHOP)
+    V_2=len(df_KOC)
+    V_3=len(df_PDI)
+    with st.container():
+        col1,col2,col3 = st.columns(3)
+        with col1:
+            st.metric('UNDER WORKSHOP',V_1,'+')
+        with col2:
+            st.metric('UNDER KOC',V_2,'+')
+        with col3:
+            st.metric('UNDER PDI',V_3,'+')
+    "---"
+    plt.title('ASSET MONITORING PLATFORM',fontsize = 8,family='Arial',fontweight='bold',color='#1a8cff')
+    plt.xlabel('LOCATIONS',color='#1a8cff',fontsize = 8)
+    plt.ylabel('QUANTITY',color='#1a8cff',fontsize = 8)
+    x=np.array(['WORKSHOP','KOC','PDI'])
+    y=np.array([V_1,V_2,V_3])
+    plt.plot(x,y,marker=".",linestyle="--",color='#1a8cff')
+    plt.grid(axis='y',color='#999999',linewidth='0.25')
+    plt.show()
+    st.pyplot(plt)
 
 
 elif selected=="PART_NUMBERS":
@@ -442,7 +483,7 @@ elif selected=='GENERAL_ASSETS':
     url = "https://zakswtxavrnvghpypmuz.supabase.co"
     key = "sb_publishable_a0FSAnDcjWOpzLkYNDCwfg_moO6MV9A"
     supabase = create_client(url, key)
-    # to reade data from table
+    # to read data from table
     response = supabase.table('ASSETS').select("*").execute()
     df = response.data
 
