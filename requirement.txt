@@ -5,3 +5,4 @@ css
 streamlit-option-menu
 supabase
 secrets.toml
+matplotlib.pyplot
