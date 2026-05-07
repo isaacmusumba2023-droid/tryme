@@ -349,6 +349,8 @@ else:
         resourse_use =supabase.table("GENSET ASSET").select("*").eq('USER','NEW GENSET').execute()
         resourse_jo = supabase.table("GENSET ASSET").select("*").eq('USER','JO-ESP').execute()
         resourse_wksp = supabase.table("GENSET ASSET").select("*").eq('USER','WORKSHOP_POWER').execute()
+        resourse_mobile = supabase.table("GENSET ASSET").select("*").eq('USER','MOBILE').execute()
+        resourse_offhire = supabase.table("GENSET ASSET").select("*").eq('USER','OFF-HIRE').execute()
 
         df_WORKSHOP = resource_w.data
         df_KOC = resource_KOC.data
@@ -356,14 +358,20 @@ else:
         df_new=resourse_use.data
         df_jo=resourse_jo.data
         df_wksp=resourse_wksp.data
+        df_mobile=resourse_mobile.data
+        df_offhire=resourse_offhire.data
+
         V_1 = len(df_WORKSHOP)
         V_2 = len(df_KOC)
         V_3 = len(df_PDI)
         V_4 = len(df_new)
         V_5 = len(df_jo)
         V_6 = len(df_wksp)
+        V_7 = len(df_mobile)
+        V_8 = len(df_offhire)
+
         with st.container():
-            col1, col2, col3,col4,col5,col6 = st.columns(6)
+            col1, col2, col3,col4,col5,col6= st.columns(6)
             with col1:
                 st.metric('WORKSHOP', V_1, '+',border=True,height=120,delta_color='green')
             with col2:
@@ -376,6 +384,14 @@ else:
                 st.metric('JO-ESP', V_5, '+',border=True,height=120,delta_color='green')
             with col6:
                 st.metric('WORKSHOP_POWER', V_6, '+',border=True,height=120,delta_color='green')
+
+        "---"
+        with st.container():
+            col01,col02,col03= st.columns(3)
+            with col01:
+                st.metric('MOBILE', V_7, '+',border=True,height=120,delta_color='green')
+            with col02:
+                st.metric('OFF-HIRE',V_8,'+',border=True,height=120,delta_color='green')
         "---"
         plt.title('ASSET MONITORING PLATFORM', fontsize=8, family='Arial', fontweight='bold', color='#1a8cff')
         plt.xlabel('LOCATIONS', color='#1a8cff', fontsize=8)
