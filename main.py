@@ -351,6 +351,10 @@ else:
         resourse_wksp = supabase.table("GENSET ASSET").select("*").eq('USER','WORKSHOP_POWER').execute()
         resourse_mobile = supabase.table("GENSET ASSET").select("*").eq('USER','MOBILE').execute()
         resourse_offhire = supabase.table("GENSET ASSET").select("*").eq('USER','OFF-HIRE').execute()
+        resourse_kva= supabase.table("GENSET ASSET").select('*').gte('KVA',200).execute()
+        kva_below=supabase.table("GENSET ASSET").select('*').lt('KVA',200).execute()
+        ready=supabase.table("GENSET ASSET").select('*').eq('USER','READY').execute()
+        burgan=supabase.table("GENSET ASSET").select('*').eq('USER','BURGAN').execute()
 
         df_WORKSHOP = resource_w.data
         df_KOC = resource_KOC.data
@@ -360,6 +364,10 @@ else:
         df_wksp=resourse_wksp.data
         df_mobile=resourse_mobile.data
         df_offhire=resourse_offhire.data
+        df_kva=resourse_kva.data
+        df_below=kva_below.data
+        df_ready=ready.data
+        df_burgan=burgan.data
 
         V_1 = len(df_WORKSHOP)
         V_2 = len(df_KOC)
@@ -369,30 +377,34 @@ else:
         V_6 = len(df_wksp)
         V_7 = len(df_mobile)
         V_8 = len(df_offhire)
+        V_9 = len(df_kva)
+        V_10 = len(df_below)
+        V_11 = len(df_ready)
+        V_12 = len(df_burgan)
 
         with st.container():
             col1, col2, col3,col4,col5,col6= st.columns(6)
             with col1:
                 st.metric('WORKSHOP', V_1, '+',border=True,height=120,delta_color='green')
+                st.metric('READY-GENSET',V_11,'+',border=True,height=120,delta_color='green')
             with col2:
                 st.metric('ESP-KOC', V_2, '+',border=True,height=120,delta_color='green')
+                st.metric('MOBILE', V_7, '+', border=True, height=120, delta_color='green')
             with col3:
                 st.metric('UNDER PDI', V_3, '+',border=True,height=120,delta_color='green')
+                st.metric('OFF-HIRE', V_8, '+', border=True, height=120, delta_color='green')
             with col4:
                 st.metric('NEW_GENSET', V_4, '+',border=True,height=120,delta_color='green')
+                st.metric('KVA=>200', V_9, '+', border=True, height=120, delta_color='green')
             with col5:
                 st.metric('JO-ESP', V_5, '+',border=True,height=120,delta_color='green')
+                st.metric('KVA<200', V_10, '+', border=True, height=120, delta_color='green')
             with col6:
                 st.metric('WORKSHOP_POWER', V_6, '+',border=True,height=120,delta_color='green')
+                st.metric('BURGAN', V_12, '+', border=True, height=120, delta_color='green')
 
         "---"
-        with st.container():
-            col01,col02,col03= st.columns(3)
-            with col01:
-                st.metric('MOBILE', V_7, '+',border=True,height=120,delta_color='green')
-            with col02:
-                st.metric('OFF-HIRE',V_8,'+',border=True,height=120,delta_color='green')
-        "---"
+
         plt.title('ASSET MONITORING PLATFORM', fontsize=8, family='Arial', fontweight='bold', color='#1a8cff')
         plt.xlabel('LOCATIONS', color='#1a8cff', fontsize=8)
         plt.ylabel('QUANTITY', color='#1a8cff', fontsize=8)
