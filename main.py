@@ -37,7 +37,7 @@ if not st.session_state['logged_in']:
                     st.error("Invalid credentials")
 else:
     # --- THIS IS YOUR ACTUAL PROGRAM ---
-    st.title(f"Welcome to Genset Field_Operations Dashboard, {st.session_state['user_name']}!")
+    st.write(f"Welcome to Genset field operations , {st.session_state['user_name']}!")
     #main code
     st.set_page_config(
         page_title="field options",
@@ -332,7 +332,7 @@ else:
 
     # DISPLAY MODEL
     elif selected == "OVER_VIEW":
-        st.info("OVER ALL DATA")
+        st.info("OVER ALL DATA & LOCATIONS")
         SUPABASE_URL = "https://zakswtxavrnvghpypmuz.supabase.co"
         SUPABASE_KEY = "sb_publishable_a0FSAnDcjWOpzLkYNDCwfg_moO6MV9A"
         TABLE_NAME = "GENSET ASSET"
@@ -341,31 +341,47 @@ else:
                                                            "AREA,LOCATION,MOVED_FROM,REASON").eq('LOCATION',
                                                                                                  'WORKSHOP').execute()
         resource_KOC = supabase.table("GENSET ASSET").select("G-CODE,SERIAL_NO,MODEL,TYPE,KVA,RUN_Hrs,"
-                                                             "AREA,LOCATION,MOVED_FROM,REASON").eq('LOCATION',
-                                                                                                   'KOC').execute()
+                                                             "AREA,LOCATION,MOVED_FROM,REASON").eq('USER',
+                                                                                                   'ESP-KOC').execute()
         resource_PDI = supabase.table("GENSET ASSET").select("G-CODE,SERIAL_NO,MODEL,TYPE,KVA,RUN_Hrs,"
                                                              "AREA,LOCATION,MOVED_FROM,REASON").eq('LOCATION',
                                                                                                    'PDI').execute()
+        resourse_use =supabase.table("GENSET ASSET").select("*").eq('USER','NEW GENSET').execute()
+        resourse_jo = supabase.table("GENSET ASSET").select("*").eq('USER','JO-ESP').execute()
+        resourse_wksp = supabase.table("GENSET ASSET").select("*").eq('USER','WORKSHOP_POWER').execute()
+
         df_WORKSHOP = resource_w.data
         df_KOC = resource_KOC.data
         df_PDI = resource_PDI.data
+        df_new=resourse_use.data
+        df_jo=resourse_jo.data
+        df_wksp=resourse_wksp.data
         V_1 = len(df_WORKSHOP)
         V_2 = len(df_KOC)
         V_3 = len(df_PDI)
+        V_4 = len(df_new)
+        V_5 = len(df_jo)
+        V_6 = len(df_wksp)
         with st.container():
-            col1, col2, col3 = st.columns(3)
+            col1, col2, col3,col4,col5,col6 = st.columns(6)
             with col1:
-                st.metric('UNDER WORKSHOP', V_1, '+')
+                st.metric('WORKSHOP', V_1, '+',border=True,height=120,delta_color='green')
             with col2:
-                st.metric('UNDER KOC', V_2, '+')
+                st.metric('ESP-KOC', V_2, '+',border=True,height=120,delta_color='green')
             with col3:
-                st.metric('UNDER PDI', V_3, '+')
+                st.metric('UNDER PDI', V_3, '+',border=True,height=120,delta_color='green')
+            with col4:
+                st.metric('NEW_GENSET', V_4, '+',border=True,height=120,delta_color='green')
+            with col5:
+                st.metric('JO-ESP', V_5, '+',border=True,height=120,delta_color='green')
+            with col6:
+                st.metric('WORKSHOP_POWER', V_6, '+',border=True,height=120,delta_color='green')
         "---"
         plt.title('ASSET MONITORING PLATFORM', fontsize=8, family='Arial', fontweight='bold', color='#1a8cff')
         plt.xlabel('LOCATIONS', color='#1a8cff', fontsize=8)
         plt.ylabel('QUANTITY', color='#1a8cff', fontsize=8)
-        x = np.array(['WORKSHOP', 'KOC', 'PDI'])
-        y = np.array([V_1, V_2, V_3])
+        x = np.array(['WORKSHOP', 'ESP-KOC','PDI','NEW-GENSET','JO-ESP','WKSP_POWER'])
+        y = np.array([V_1, V_2, V_3,V_4,V_5,V_6])
         plt.plot(x, y, marker=".", linestyle="--", color='#1a8cff')
         plt.grid(axis='y', color='#999999', linewidth='0.25')
         plt.show()
