@@ -83,6 +83,7 @@ else:
     cum_kva = ['---click here---', 13]
     bau_make = ['---click here---', 'BAUDOUIN']
     bau_kva = ['---click here---', 200, 250]
+    CONTRACT_OPTIONS=['--select--','70006301','70005701']
     # loaded values
     with st.sidebar:
         st.sidebar.image('img.png', width=80)
@@ -189,6 +190,7 @@ else:
                     serial_no = st.text_input("SERIAL_NO")
                     model = st.selectbox("MODEL", options=MDL)
                     asset_type = st.selectbox("TYPE", options=TYP)
+                    contract=st.selectbox('CONTRACT_NO :',options=['--select--',70006301,70005701])
                 with col2:
                     kva = st.number_input("KVA", min_value=0, step=1)
                     user_id = st.number_input("user_id", min_value=0, step=1)
@@ -218,6 +220,7 @@ else:
                         "TYPE": asset_type,
                         "KVA": kva,
                         "user_id": user_id,
+                        "CONTRACT_NO": contract,
                         "MANUF_YR": str(manuf_yr),
                         "SERVICE_YR_KOC": str(service_yr_koc),
                         "RUN_Hrs": run_hrs,
@@ -258,14 +261,26 @@ else:
                     asset_data = df[df["G-CODE"] == selected_gcode].iloc[0]
 
                     with st.form("update_form"):
-                        col1, col2 = st.columns(2)
+                        col1, col2= st.columns(2)
 
                         with col1:
+                            current_contract=str(asset_data.get("CONTRACT_NO","--SELECT--"))
+                            if current_contract not in CONTRACT_OPTIONS:
+                                temp_option=CONTRACT_OPTIONS + [current_contract]
+                            else:
+                                temp_option=CONTRACT_OPTIONS
+                            u_contract = st.selectbox("CONTRACT_NO", options=temp_option,index=temp_option.index(current_contract))
+
                             u_serial_no = st.text_input("SERIAL_NO", value=str(asset_data.get("SERIAL_NO", "")))
+
                             u_model = st.text_input("MODEL", value=str(asset_data.get("MODEL", "")))
+
                             u_type = st.text_input("TYPE", value=str(asset_data.get("TYPE", "")))
+
                             u_kva = st.number_input("KVA", value=int(asset_data.get("KVA", 0)))
+                            
                             u_user_id = st.number_input("user_id", value=int(asset_data.get("user_id", 0)))
+
 
 
                             # Handle date conversion for Streamlit date_input
@@ -287,15 +302,18 @@ else:
                             u_location = st.text_input("LOCATION", value=str(asset_data.get("LOCATION", "")))
                             u_field = st.text_input("FIELD", value=str(asset_data.get("FIELD", "")))
                             u_user = st.text_input("USER", value=str(asset_data.get("USER", "")))
+
                             u_crew = st.number_input("CREW", value=int(asset_data.get("CREW", 0)))
                             u_moved_from = st.text_input("MOVED_FROM", value=str(asset_data.get("MOVED_FROM", "")))
                             u_reason = st.text_area("REASON", value=str(asset_data.get("REASON", "")))
+
 
                         update_submit = st.form_submit_button("Update Asset")
 
                         if update_submit:
                             updated_data = {
                                 "SERIAL_NO": u_serial_no,
+                                "CONTRACT_NO": u_contract,
                                 "MODEL": u_model,
                                 "TYPE": u_type,
                                 "KVA": u_kva,
@@ -408,8 +426,8 @@ else:
         plt.title('ASSET MONITORING PLATFORM', fontsize=8, family='Arial', fontweight='bold', color='#1a8cff')
         plt.xlabel('LOCATIONS', color='#1a8cff', fontsize=8)
         plt.ylabel('QUANTITY', color='#1a8cff', fontsize=8)
-        x = np.array(['WORKSHOP', 'ESP-KOC','PDI','NEW-GENSET','JO-ESP','WKSP_POWER'])
-        y = np.array([V_1, V_2, V_3,V_4,V_5,V_6])
+        x = np.array(['WORKSHOP', 'ESP-KOC','PDI','JO-ESP','WKSP_POWER'])
+        y = np.array([V_1, V_2, V_3,V_5,V_6])
         plt.plot(x, y, marker=".", linestyle="--", color='#1a8cff')
         plt.grid(axis='y', color='#999999', linewidth='0.25')
         plt.show()
