@@ -84,6 +84,7 @@ else:
     bau_make = ['---click here---', 'BAUDOUIN']
     bau_kva = ['---click here---', 200, 250]
     CONTRACT_OPTIONS=['--select--','70006301','70005701']
+    USER_OPTIONS=['ESP-KOC','JO-KOC','WORKSHOP','PDI','OFF-HIRE','MOBILE','BURGAN YARD','WHSP-POWER']
     # loaded values
     with st.sidebar:
         st.sidebar.image('img.png', width=80)
@@ -278,7 +279,7 @@ else:
                             u_type = st.text_input("TYPE", value=str(asset_data.get("TYPE", "")))
 
                             u_kva = st.number_input("KVA", value=int(asset_data.get("KVA", 0)))
-                            
+
                             u_user_id = st.number_input("user_id", value=int(asset_data.get("user_id", 0)))
 
 
@@ -300,8 +301,17 @@ else:
                             u_area = st.text_input("AREA", value=str(asset_data.get("AREA", "")))
                             u_appr_kva = st.number_input("APPR_KVA", value=int(asset_data.get("APPR_KVA", 0)))
                             u_location = st.text_input("LOCATION", value=str(asset_data.get("LOCATION", "")))
-                            u_field = st.text_input("FIELD", value=str(asset_data.get("FIELD", "")))
-                            u_user = st.text_input("USER", value=str(asset_data.get("USER", "")))
+
+                            #adding options for field during update
+                            current_field=str(asset_data.get("FIELD", ""))
+                            f_options=FLD if current_field in FLD else FLD + [current_field]
+                            u_field = st.selectbox("FIELD",options=f_options,index=f_options.index(current_field))
+
+                            #adding select options for USER
+                            current_user=str(asset_data.get("USER", ""))
+                            u_options=USER_OPTIONS if current_user in USER_OPTIONS else USER_OPTIONS + [current_user]
+                            u_user = st.selectbox("USER", options=u_options,index=u_options.index(current_user))
+                            #read me again mr.isaac
 
                             u_crew = st.number_input("CREW", value=int(asset_data.get("CREW", 0)))
                             u_moved_from = st.text_input("MOVED_FROM", value=str(asset_data.get("MOVED_FROM", "")))
