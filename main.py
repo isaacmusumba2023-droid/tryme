@@ -1,21 +1,40 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
 from streamlit_option_menu import option_menu
-from supabase import create_client, Client
-from datetime import datetime, timedelta
+from supabase import create_client
+from datetime import datetime
 import os
 
 
+#page setting to
+
+st.markdown(
+    """
+    <style>
+        /* Remove padding from the main block-container */
+        .block-container {
+            padding-top: 1rem;
+            padding-bottom: 0rem;
+            padding-left: 5rem;
+            padding-right: 5rem;
+        }
+        /* Specifically target the header to remove its height if not needed */
+        header {
+            visibility: hidden;
+            height: 0px;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 # 1. Initialize the login state if it doesn't exist
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
 
 users = {
-    "ISAAC": "1234isaac",
-    "CHRISTOPHER": "5467chris",
-    "MICHEAL": "8910mich"
+    "ISAAC":"1234isaac",
+    "CHRISTOPHER":"5467chris",
+    "MICHEAL":"8910mich"
 }
 
 # 2. Check if the user is logged in
@@ -37,7 +56,7 @@ if not st.session_state['logged_in']:
                     st.error("Invalid credentials")
 else:
     # --- THIS IS YOUR ACTUAL PROGRAM ---
-    st.write(f"Welcome to Genset field operations , {st.session_state['user_name']}!")
+    st.sidebar.write(f"Welcome to Genset field operations , {st.session_state['user_name']}!")
     #main code
     st.set_page_config(
         page_title="field options",
@@ -69,7 +88,7 @@ else:
            "TAD-734GE", "TAD-840GE", "TWD-1643GE", "TWD-1645GE"]
     TYP = ["CAT", "VOLVO", "CUMMINS", "BAUDOUIN"]
     AR = ["SK", "EK", "RA"]
-    FLD = ["NORTH", "SEK", "WAFRA", "WEST"]
+    FLD = ["NORTH", "SEK", "WAFRA", "WEST","MISHRIF","WORKSHOP"]
     ZR = ["ESP-KOC", "OFF-HIRE", "WORKSHOP", "PDI"]
     # parts sectioned
     cat_make = ['---click here---', 3406, 3412, "C32", "6M16G2DO/S", "6M16G6G4DO/S", "C13", 'C15', 'C18', 'C3.2']
@@ -84,7 +103,8 @@ else:
     bau_make = ['---click here---', 'BAUDOUIN']
     bau_kva = ['---click here---', 200, 250]
     CONTRACT_OPTIONS=['--select--','70006301','70005701']
-    USER_OPTIONS=['ESP-KOC','JO-KOC','WORKSHOP','PDI','OFF-HIRE','MOBILE','BURGAN YARD','WHSP-POWER']
+    USER_OPTIONS=['ESP-KOC','JO-ESP','WORKSHOP','PDI','OFF-HIRE','MOBILE','BURGAN YARD','WHSP-POWER','ABDALY FARM',
+                  'DESALTER PROJECT','MISHRIF','NEW GENERATOR','FIELD_OP REPAIR','READY']
     # loaded values
     with st.sidebar:
         st.sidebar.image('img.png', width=80)
@@ -111,9 +131,7 @@ else:
         )
     # page setup
     if selected == "ASSET_FIELD":
-        "---"
         st.info("WELCOME TO FIELD_OPERATIONS_ASSETS UPDATES")
-        "---"
 
 
         @st.cache_resource
@@ -124,7 +142,9 @@ else:
         supabase = init_connection()
         # selections
         menu = ["View Assets", "Filter & Download", "Add New Asset", "Update Asset"]
-        choice = st.selectbox("Menu", menu)
+#        choice = st.selectbox("Menu", menu)
+        tab1,tab2,tab3,tab4=st.tabs(["View Assets", "Filter & Download", "Add New Asset", "Update Asset"])
+
 
 
         # help to get data
@@ -134,7 +154,7 @@ else:
 
 
         # view assets
-        if choice == "View Assets":
+        with tab1:
             st.subheader("Current Field Assets")
             try:
                 df = fetch_data()
@@ -146,12 +166,12 @@ else:
             except Exception as e:
                 st.error(f"Error fetching data: {e}")
         # FILTER$DOWNLOAD
-        elif choice == "Filter & Download":
-            st.subheader("🔍 Filter & Download Assets")
+        with tab2:
+            st.info("🔍 Filter & Download Assets")
             try:
                 df = fetch_data()
                 if not df.empty:
-                    st.write("### Apply Filters")
+#                    st.write("### Apply Filters")
                     col_f1, col_f2 = st.columns(2)
                     with col_f1:
                         # Get unique locations, handling potential None values
@@ -182,7 +202,7 @@ else:
                     st.warning("No assets found in the database.")
             except Exception as e:
                 st.error(f"Error fetching data: {e}")
-        elif choice == "Add New Asset":
+        with tab3:
             st.subheader("Add New Asset")
             with st.form("add_new_asset", clear_on_submit=True):
                 col1, col2, col3, col4 = st.columns(4)
@@ -248,7 +268,7 @@ else:
                             if hasattr(e, 'details'):
                                 st.write(f"Details: {e.details}")
         # updating added assets
-        elif choice == "Update Asset":
+        with tab4:
             st.subheader("Edit Existing Asset")
 
             try:
@@ -262,7 +282,7 @@ else:
                     asset_data = df[df["G-CODE"] == selected_gcode].iloc[0]
 
                     with st.form("update_form"):
-                        col1, col2= st.columns(2)
+                        col1, col2,col3= st.columns(3)
 
                         with col1:
                             current_contract=str(asset_data.get("CONTRACT_NO","--SELECT--"))
@@ -282,7 +302,7 @@ else:
 
                             u_user_id = st.number_input("user_id", value=int(asset_data.get("user_id", 0)))
 
-
+                        with col2:
 
                             # Handle date conversion for Streamlit date_input
                             def parse_date(date_str):
@@ -297,11 +317,11 @@ else:
                                                              value=parse_date(asset_data.get("SERVICE_YR_KOC", "")))
                             u_run_hrs = st.number_input("RUN_Hrs", value=int(asset_data.get("RUN_Hrs", 0)))
 
-                        with col2:
+
                             u_area = st.text_input("AREA", value=str(asset_data.get("AREA", "")))
                             u_appr_kva = st.number_input("APPR_KVA", value=int(asset_data.get("APPR_KVA", 0)))
                             u_location = st.text_input("LOCATION", value=str(asset_data.get("LOCATION", "")))
-
+                        with col3:
                             #adding options for field during update
                             current_field=str(asset_data.get("FIELD", ""))
                             f_options=FLD if current_field in FLD else FLD + [current_field]
@@ -432,16 +452,13 @@ else:
                 st.metric('BURGAN', V_12, '+', border=True, height=120, delta_color='green')
 
         "---"
-
-        plt.title('ASSET MONITORING PLATFORM', fontsize=8, family='Arial', fontweight='bold', color='#1a8cff')
-        plt.xlabel('LOCATIONS', color='#1a8cff', fontsize=8)
-        plt.ylabel('QUANTITY', color='#1a8cff', fontsize=8)
-        x = np.array(['WORKSHOP', 'ESP-KOC','PDI','JO-ESP','WKSP_POWER'])
-        y = np.array([V_1, V_2, V_3,V_5,V_6])
-        plt.plot(x, y, marker=".", linestyle="--", color='#1a8cff')
-        plt.grid(axis='y', color='#999999', linewidth='0.25')
-        plt.show()
-        st.pyplot(plt)
+        with st.expander("DATA_VISUALIZATION"):
+            # Simple native replacement for your matplotlib block:
+            chart_data = pd.DataFrame({
+                'Location': ['WORKSHOP', 'ESP-KOC', 'PDI', 'JO-ESP', 'WKSP_POWER'],
+                'Quantity': [V_1, V_2, V_3, V_5, V_6]
+            })
+            st.bar_chart(chart_data, x='Location', y='Quantity', color="#1a8cff")
 
 
     elif selected == "PART_NUMBERS":
@@ -449,7 +466,7 @@ else:
         "----"
         option = ["CATERPILLAR", "VOLVO", "CUMMINS", "BAUDOUIN"]
         selection = st.segmented_control("SELECT_GENSET-TYPE"
-                                         , options=option,
+                                         , options=option,key="nav_index"
                                          )
         if selection == "CATERPILLAR":
             make_cat = st.selectbox("SELECT_MAKE", options=cat_make)
@@ -625,9 +642,10 @@ else:
         st.info("FLEET_MANAGEMENT AND PLANNING" + ':tractor:')
     elif selected == 'GENERAL_ASSETS':
         st.info("General assets trucking system")
-        url = "https://zakswtxavrnvghpypmuz.supabase.co"
-        key = "sb_publishable_a0FSAnDcjWOpzLkYNDCwfg_moO6MV9A"
-        supabase = create_client(url, key)
+        SUPABASE_URL = "https://zakswtxavrnvghpypmuz.supabase.co"
+        SUPABASE_KEY = "sb_publishable_a0FSAnDcjWOpzLkYNDCwfg_moO6MV9A"
+        TABLE_NAME = "ASSETs"
+        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
         # to read data from table
         response = supabase.table('ASSETS').select("*").execute()
         df = response.data
@@ -693,6 +711,7 @@ else:
                             st.success(f"Asset {nn_1} has been UPDATED")
 
 #end of code area
-    if st.button("Log Out"):
+
+    if st.sidebar.button("Log Out"):
         st.session_state['logged_in'] = False
         st.rerun()
