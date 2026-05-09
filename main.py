@@ -27,6 +27,9 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+st.set_page_config(
+    initial_sidebar_state="expanded",
+)
 # 1. Initialize the login state if it doesn't exist
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
