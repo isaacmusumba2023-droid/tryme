@@ -5,3 +5,4 @@ css
 st-gsheets-connection
 supabase
 matplotlib
+plotly
