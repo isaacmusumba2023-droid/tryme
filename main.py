@@ -10,6 +10,15 @@ import os
 SUPABASE_URL = "https://zakswtxavrnvghpypmuz.supabase.co"
 SUPABASE_KEY = "sb_publishable_a0FSAnDcjWOpzLkYNDCwfg_moO6MV9A"
 TABLE_NAME = "GENSET ASSET"
+#page setting
+st.set_page_config(
+        page_title="field options",
+        page_icon="home.png",
+        layout="wide",
+        initial_sidebar_state="expanded",
+
+    )
+
 # Move this to the top of your script (after imports)
 @st.cache_data(ttl=600)  # Caches for 10 minutes
 def get_cached_fleet_data():
@@ -27,7 +36,7 @@ df_all = get_cached_fleet_data()
 # 1. Initialize the login state if it doesn't exist
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
-
+#USERS TO LOGIN
 users = {
     "ISAAC":"1234isaac",
     "CHRISTOPHER":"5467chris",
@@ -52,6 +61,7 @@ if not st.session_state['logged_in']:
                 else:
                     st.error("Invalid credentials")
 else:
+
     # --- THIS IS YOUR ACTUAL PROGRAM ---
 
     st.markdown(
@@ -73,18 +83,7 @@ else:
         """,
         unsafe_allow_html=True
     )
-    st.sidebar.write(f"Welcome Mr.{st.session_state['user_name']}!")
-    #main code
-    st.set_page_config(
-        page_title="field options",
-        page_icon="home.png",
-        layout="wide",
-        initial_sidebar_state="expanded",
-
-    )
-    st.sidebar.write("GOOD DAY")
-    # connection to supabase
-
+    st.sidebar.write(f"WELCOME  { st.session_state['user_name']}!")
 
 
 
@@ -123,20 +122,20 @@ else:
                   'DESALTER PROJECT','MISHRIF','NEW GENERATOR','FIELD_OP REPAIR','READY']
     # loaded values
     with st.sidebar:
-        st.sidebar.info("Digital asset tracking")
+        st.sidebar.info("Digital asset tracking project")
         st.sidebar.image('img.png', width=80)
         selected = option_menu(
-            menu_title="GENSET_FIELD",
-            options=["OVER_VIEW", "ASSET_FIELD", "PART_NUMBERS", "MATERIALS_PDI", "WORKSHOP", "FLEET MANAGEMENT",
-                     "RISK MANAGEMENT", "STORES", "GENERAL_ASSETS"],
-            icons=["binoculars", "boxes", "gear-wide-connected", "geo", "tools", "speedometer 2", "radioactive",
-                   "bar-chart", "recycle"],
+            menu_title="FIELD_OP",
+            options=["OVER_VIEW", "ASSET_MANAGEMENT", "WORKSHOP","PART_NUMBERS","MATERIALS_PDI", "MAINTENANCE",
+                      "GENERAL_ASSETS"],
+            icons=["binoculars", "boxes", "tools","gear-wide-connected", "geo", "speedometer 2",
+                   "recycle"],
             menu_icon="person-gear",
             default_index=0,
             styles={
                 "container": {"background-Color": "#cceeff", "header-font": "algerian"},
                 "nav-link": {
-                    "font-size": "12px",
+                    "font-size": "11px",
                     "text-align": "left",
                     "color": "#000000",
                     "font-weight": "Arial",
@@ -147,7 +146,7 @@ else:
             }
         )
     # page setup
-    if selected == "ASSET_FIELD":
+    if selected == "ASSET_MANAGEMENT":
         st.info("WELCOME TO FIELD_OPERATIONS_ASSETS UPDATES")
 
 
@@ -668,7 +667,7 @@ else:
         D = len(df)
         st.metric('TOTAL NUMBER', D, "+")
 
-    elif selected == "FLEET MANAGEMENT":
+    elif selected == "MAINTENANCE":
         st.info("PREVENTIVE MAINTENANCE")
         #LOGIC FOR PREDICTIVE SERVICE
         SUPABASE_URL = "https://zakswtxavrnvghpypmuz.supabase.co"
@@ -685,7 +684,6 @@ else:
             df['PLANNED_PM'] = pd.to_datetime(df['PLANNED_PM']).dt.date
 
             # --- DYNAMIC CALCULATIONS ---
-            # --- IMPROVED DYNAMIC CALCULATIONS ---
             # Use pd.to_datetime to handle strings and NaT (nulls) safely
             df['PLANNED_PM'] = pd.to_datetime(df['PLANNED_PM']).dt.date
 
@@ -715,10 +713,10 @@ else:
             df['STATUS'] = df['DAYS_LEFT'].apply(lambda x: '🚨 OVERDUE' if x < 0 else '✅ OK')
 
             # 2. Display Table
-            st.subheader("Live Fleet Status")
-            st.dataframe(
-                df[["G-CODE", "MODEL", "LOCATION", "PLANNED_PM", "NEXT_PM", "DAYS_LEFT", "UPCOMING_TYPE", "STATUS"]],
-                hide_index=True, use_container_width=True)
+            with st.expander("General service"):
+                st.dataframe(
+                    df[["G-CODE", "MODEL", "LOCATION", "PLANNED_PM", "NEXT_PM", "DAYS_LEFT", "UPCOMING_TYPE", "STATUS"]],
+                    hide_index=True, use_container_width=True)
 
             # 3. Scatter Graph with Overdue Warnings
             import plotly.express as px
@@ -763,7 +761,7 @@ else:
         st.info("General assets trucking system")
         SUPABASE_URL = "https://zakswtxavrnvghpypmuz.supabase.co"
         SUPABASE_KEY = "sb_publishable_a0FSAnDcjWOpzLkYNDCwfg_moO6MV9A"
-        TABLE_NAME = "ASSETs"
+        TABLE_NAME = "ASSETS"
         supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
         # to read data from table
         response = supabase.table('ASSETS').select("*").execute()
