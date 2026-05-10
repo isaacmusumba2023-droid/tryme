@@ -2,34 +2,28 @@ import streamlit as st
 import pandas as pd
 from streamlit_option_menu import option_menu
 from supabase import create_client
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 
 
-#page setting to
+#connecting
+SUPABASE_URL = "https://zakswtxavrnvghpypmuz.supabase.co"
+SUPABASE_KEY = "sb_publishable_a0FSAnDcjWOpzLkYNDCwfg_moO6MV9A"
+TABLE_NAME = "GENSET ASSET"
+# Move this to the top of your script (after imports)
+@st.cache_data(ttl=600)  # Caches for 10 minutes
+def get_cached_fleet_data():
+    # Initialize connection inside the function or use a cached client
+    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+    response = supabase.table(TABLE_NAME).select("*").execute()
+    return pd.DataFrame(response.data)
 
-st.markdown(
-    """
-    <style>
-        /* Remove padding from the main block-container */
-        .block-container {
-            padding-top: 1rem;
-            padding-bottom: 0rem;
-            padding-left: 5rem;
-            padding-right: 5rem;
-        }
-        /* Specifically target the header to remove its height if not needed */
-        header {
-            visibility: hidden;
-            height: 0px;
-        }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-st.set_page_config(
-    initial_sidebar_state="expanded",
-)
+# Inside your main logic:
+df_all = get_cached_fleet_data()
+
+
+
+
 # 1. Initialize the login state if it doesn't exist
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
@@ -59,19 +53,39 @@ if not st.session_state['logged_in']:
                     st.error("Invalid credentials")
 else:
     # --- THIS IS YOUR ACTUAL PROGRAM ---
-    st.sidebar.write(f"Welcome to Genset field operations , {st.session_state['user_name']}!")
+
+    st.markdown(
+        """
+        <style>
+            /* Remove padding from the main block-container */
+            .block-container {
+                padding-top: 1rem;
+                padding-bottom: 0rem;
+                padding-left: 5rem;
+                padding-right: 5rem;
+            }
+            /* Specifically target the header to remove its height if not needed */
+            header {
+                visibility: hidden;
+                height: 0px;
+            }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+    st.sidebar.write(f"Welcome Mr.{st.session_state['user_name']}!")
     #main code
     st.set_page_config(
         page_title="field options",
         page_icon="home.png",
         layout="wide",
         initial_sidebar_state="expanded",
+
     )
+    st.sidebar.write("GOOD DAY")
     # connection to supabase
 
-    SUPABASE_URL = "https://zakswtxavrnvghpypmuz.supabase.co"
-    SUPABASE_KEY = "sb_publishable_a0FSAnDcjWOpzLkYNDCwfg_moO6MV9A"
-    TABLE_NAME = "GENSET ASSET"
+
 
 
     # calling style.css
@@ -92,7 +106,6 @@ else:
     TYP = ["CAT", "VOLVO", "CUMMINS", "BAUDOUIN"]
     AR = ["SK", "EK", "RA"]
     FLD = ["NORTH", "SEK", "WAFRA", "WEST","MISHRIF","WORKSHOP"]
-    ZR = ["ESP-KOC", "OFF-HIRE", "WORKSHOP", "PDI"]
     # parts sectioned
     cat_make = ['---click here---', 3406, 3412, "C32", "6M16G2DO/S", "6M16G6G4DO/S", "C13", 'C15', 'C18', 'C3.2']
     cat_kva = ['---click here---', 60, 100, 135, 200, 201, 250, 320, 400, 500, 545, 600, 625, 650, 770, 810, 1100, 1500]
@@ -110,6 +123,7 @@ else:
                   'DESALTER PROJECT','MISHRIF','NEW GENERATOR','FIELD_OP REPAIR','READY']
     # loaded values
     with st.sidebar:
+        st.sidebar.info("Digital asset tracking")
         st.sidebar.image('img.png', width=80)
         selected = option_menu(
             menu_title="GENSET_FIELD",
@@ -227,7 +241,7 @@ else:
                     location = st.text_input("LOCATION")
                     field = st.selectbox("FIELD", options=FLD)
                 with col4:
-                    user = st.selectbox("USER", options=ZR)
+                    user = st.selectbox("USER", options=USER_OPTIONS)
                     crew = st.number_input("CREW", min_value=0, step=1)
                     movement_date = st.date_input("MOVEMENT_DATE")
                     moved_from = st.text_input("MOVED_FROM")
@@ -297,9 +311,22 @@ else:
 
                             u_serial_no = st.text_input("SERIAL_NO", value=str(asset_data.get("SERIAL_NO", "")))
 
-                            u_model = st.text_input("MODEL", value=str(asset_data.get("MODEL", "")))
+                            current_model=str(asset_data.get("MODEL",""))
+                            if current_model not in MDL:
+                                temp_model=MDL + [current_model]
+                            else:
+                                temp_model=MDL
 
-                            u_type = st.text_input("TYPE", value=str(asset_data.get("TYPE", "")))
+                            u_model = st.selectbox("MODEL",options=temp_model,index=temp_model.index(current_model))
+
+                            #type list from TYP variable
+                            current_type=str(asset_data.get("TYPE",""))
+                            if current_type not in TYP:
+                                temp_type=TYP + [current_type]
+                            else:
+                                temp_type=TYP
+
+                            u_type = st.selectbox("TYPE", options=temp_type,index=temp_type.index(current_type))
 
                             u_kva = st.number_input("KVA", value=int(asset_data.get("KVA", 0)))
 
@@ -383,7 +410,7 @@ else:
 
     # DISPLAY MODEL
     elif selected == "OVER_VIEW":
-        st.info("OVER ALL DATA & LOCATIONS")
+        st.info("GENSET FIELD_OPERATIIONS DATA ANALYSIS")
         SUPABASE_URL = "https://zakswtxavrnvghpypmuz.supabase.co"
         SUPABASE_KEY = "sb_publishable_a0FSAnDcjWOpzLkYNDCwfg_moO6MV9A"
         TABLE_NAME = "GENSET ASSET"
@@ -642,7 +669,96 @@ else:
         st.metric('TOTAL NUMBER', D, "+")
 
     elif selected == "FLEET MANAGEMENT":
-        st.info("FLEET_MANAGEMENT AND PLANNING" + ':tractor:')
+        st.info("PREVENTIVE MAINTENANCE")
+        #LOGIC FOR PREDICTIVE SERVICE
+        SUPABASE_URL = "https://zakswtxavrnvghpypmuz.supabase.co"
+        SUPABASE_KEY = "sb_publishable_a0FSAnDcjWOpzLkYNDCwfg_moO6MV9A"
+        TABLE_NAME = "GENSET ASSET"
+        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+        fleet_data = supabase.table('GENSET ASSET').select(
+            "G-CODE, SERIAL_NO, MODEL, KVA, LOCATION, PLANNED_PM"
+        ).execute()
+        df = pd.DataFrame(fleet_data.data)
+
+        if not df.empty:
+            today = datetime.now().date()
+            df['PLANNED_PM'] = pd.to_datetime(df['PLANNED_PM']).dt.date
+
+            # --- DYNAMIC CALCULATIONS ---
+            # --- IMPROVED DYNAMIC CALCULATIONS ---
+            # Use pd.to_datetime to handle strings and NaT (nulls) safely
+            df['PLANNED_PM'] = pd.to_datetime(df['PLANNED_PM']).dt.date
+
+            # Calculate with safety checks
+            df['DAYS_SINCE_LAST'] = df['PLANNED_PM'].apply(
+                lambda x: (today - x).days if pd.notnull(x) else 0
+            )
+
+            df['NEXT_PM'] = df['PLANNED_PM'].apply(
+                lambda x: x + timedelta(days=15) if pd.notnull(x) else today + timedelta(days=15)
+            )
+
+            df['DAYS_LEFT'] = df['NEXT_PM'].apply(
+                lambda x: (x - today).days if pd.notnull(x) else 0
+            )
+
+
+            # Service Type Logic:
+            # We assume a B-Service occurs every 90 days (the 6th service in the 15-day cycle)
+            def get_service_type(days_past):
+                # If the cumulative days since a major overhaul/start is a multiple of 90
+                # For this logic, we check if the current gap is hitting the 90-day mark
+                return "B-SERVICE (90d)" if days_past >= 75 else "A-SERVICE (15d)"
+
+
+            df['UPCOMING_TYPE'] = df['DAYS_SINCE_LAST'].apply(get_service_type)
+            df['STATUS'] = df['DAYS_LEFT'].apply(lambda x: '🚨 OVERDUE' if x < 0 else '✅ OK')
+
+            # 2. Display Table
+            st.subheader("Live Fleet Status")
+            st.dataframe(
+                df[["G-CODE", "MODEL", "LOCATION", "PLANNED_PM", "NEXT_PM", "DAYS_LEFT", "UPCOMING_TYPE", "STATUS"]],
+                hide_index=True, use_container_width=True)
+
+            # 3. Scatter Graph with Overdue Warnings
+            import plotly.express as px
+
+            fig = px.scatter(
+                df, x="G-CODE", y="DAYS_LEFT", color="STATUS",
+                color_discrete_map={'🚨 OVERDUE': '#FF4B4B', '✅ OK': '#00CC96'},
+                size=df['DAYS_LEFT'].abs().add(15),
+                hover_data=["MODEL", "UPCOMING_TYPE"],
+                title="Service Countdown (Days Remaining)"
+            )
+            fig.add_hline(y=0, line_dash="dash", line_color="orange", annotation_text="DUE DATE")
+            st.plotly_chart(fig, use_container_width=True)
+
+            "---"
+
+            # 4. ACTION: COMPLETE SERVICE BUTTON
+            st.subheader("Update Service Record")
+            with st.expander("Record a Completed Service"):
+                with st.form("complete_service_form"):
+                    target_unit = st.selectbox("Select Generator G-CODE:", df["G-CODE"].tolist())
+                    completion_date = st.date_input("Date Service Was Finished:", value=today)
+                    notes = st.text_area("Maintenance Notes (Optional):")
+
+                    if st.form_submit_button("MARK AS COMPLETED"):
+                        update_data = {
+                            "PLANNED_PM": str(completion_date),
+                            "REASON": notes if notes else "Routine Service Completed"
+                        }
+                        try:
+                            supabase.table('GENSET ASSET').update(update_data).eq("G-CODE", target_unit).execute()
+                            st.success(f"✅ Service for {target_unit} recorded. The countdown has been reset!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error updating database: {e}")
+
+        else:
+            st.warning("No fleet data found in the 'GENSET ASSET' table.")
+
+
     elif selected == 'GENERAL_ASSETS':
         st.info("General assets trucking system")
         SUPABASE_URL = "https://zakswtxavrnvghpypmuz.supabase.co"
