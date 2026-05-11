@@ -1,6 +1,7 @@
 
 import streamlit as st
 import pandas as pd
+import plotly.express as px
 from streamlit_option_menu import option_menu
 from supabase import create_client
 from datetime import datetime, timedelta
@@ -535,10 +536,85 @@ else:
                     df[["G-CODE", "MODEL", "LOCATION", "PLANNED_PM", "NEXT_PM", "DAYS_LEFT", "UPCOMING_TYPE",
                         "STATUS"]],
                     hide_index=True, use_container_width=True)
+            "---"
+            # 2. SELECTION & RESET LOGIC
+            st.subheader("Unit Specific Maintenance & History")
+            target_unit = st.selectbox("Select Generator G-CODE:", df["G-CODE"].tolist())
 
-            # 3. Scatter Graph with Overdue Warnings
-            import plotly.express as px
+            # Find the date of the last "B-SERVICE" to calculate the 90-day cycle reset
+            last_b_query = (
+                supabase.table("SERVICE_LOGS")
+                .select("service_date")
+                .eq("g_code", target_unit)
+                .eq("service_type", "B")
+                .order("service_date", desc=True)
+                .limit(1)
+                .execute()
+            )
 
+            if last_b_query.data:
+                last_b_date = datetime.strptime(last_b_query.data[0]['service_date'], "%Y-%m-%d").date()
+                days_since_b_reset = (today - last_b_date).days
+            else:
+                days_since_b_reset = 90  # Force B-Service if no history exists
+
+            # Determine next service type based on 90-day reset rule
+            if days_since_b_reset >= 90:
+                next_service_type = "B-SERVICE"
+                st.warning(f"🚨 Unit {target_unit} is due for a B-SERVICE (90-Day Cycle Reset)")
+            else:
+                next_service_type = "A-SERVICE"
+                st.info(f"✅ Next Service: {next_service_type}. ({90 - days_since_b_reset} days until B-reset)")
+
+            # 3. DISPLAY LAST 5 SERVICES
+            st.write("### Last 5 Services History")
+            history_res = (
+                supabase.table("SERVICE_LOGS")
+                .select("service_date, service_type, run_hours, notes")
+                .eq("g_code", target_unit)
+                .order("service_date", desc=True)
+                .limit(5)
+                .execute()
+            )
+
+            if history_res.data:
+                st.table(pd.DataFrame(history_res.data))
+            else:
+                st.caption("No history found in SERVICE_LOGS for this unit.")
+
+            # 4. ACTION: RECORD COMPLETED SERVICE
+            with st.expander(f"Record New Service for {target_unit}"):
+                with st.form("service_update_form"):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        comp_date = st.date_input("Completion Date", value=today)
+                        # Let user confirm type, but default it based on our reset logic
+                        actual_type = st.selectbox("Service Type Performed", options=["A", "B"],
+                                                   index=1 if next_service_type == "B-SERVICE" else 0)
+                    with col2:
+                        hrs = st.number_input("Run Hours at Service", min_value=0)
+                        notes = st.text_area("Maintenance Notes")
+
+                    if st.form_submit_button("SUBMIT SERVICE RECORD"):
+                        # Update Main Asset Table
+                        supabase.table('GENSET ASSET').update({
+                            "PLANNED_PM": str(comp_date),
+                            "RUN_Hrs": hrs
+                        }).eq("G-CODE", target_unit).execute()
+
+                        # Insert into Logs Table (Important for the reset logic!)
+                        log_data = {
+                            "g_code": target_unit,
+                            "service_date": str(comp_date),
+                            "service_type": actual_type,
+                            "run_hours": hrs,
+                            "notes": notes
+                        }
+                        supabase.table("SERVICE_LOGS").insert(log_data).execute()
+
+                        st.success("Service Logged. Cycle Reset Applied!")
+                        st.rerun()
+            #GRAPHIC VIEW
             fig = px.scatter(
                 df, x="G-CODE", y="DAYS_LEFT", color="STATUS",
                 color_discrete_map={'🚨 OVERDUE': '#FF4B4B', '✅ OK': '#00CC96'},
@@ -549,30 +625,17 @@ else:
             fig.add_hline(y=0, line_dash="dash", line_color="orange", annotation_text="DUE DATE")
             st.plotly_chart(fig, use_container_width=True)
 
-            "---"
-
-            # 4. ACTION: COMPLETE SERVICE BUTTON
-            st.subheader("Update Service Record")
-            with st.expander("Record a Completed Service"):
-                with st.form("complete_service_form"):
-                    target_unit = st.selectbox("Select Generator G-CODE:", df["G-CODE"].tolist())
-                    completion_date = st.date_input("Date Service Was Finished:", value=today)
-                    notes = st.text_area("Maintenance Notes (Optional):")
-
-                    if st.form_submit_button("MARK AS COMPLETED"):
-                        update_data = {
-                            "PLANNED_PM": str(completion_date),
-                            "REASON": notes if notes else "Routine Service Completed"
-                        }
-                        try:
-                            supabase.table('GENSET ASSET').update(update_data).eq("G-CODE", target_unit).execute()
-                            st.success(f"✅ Service for {target_unit} recorded. The countdown has been reset!")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Error updating database: {e}")
-
         else:
-            st.warning("No fleet data found in the 'GENSET ASSET' table.")
+            st.warning("No data found in 'GENSET ASSET' table.")
+            # 3. Scatter Graph with Overdue Warnings
+
+
+
+
+
+
+
+
     #logic screening for workshop
     elif selected == "WORKSHOP":
         st.info("GENERATORS_UNDER_WORKSHOP")
