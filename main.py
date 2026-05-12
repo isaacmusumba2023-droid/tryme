@@ -485,7 +485,7 @@ else:
 
     # --- PAGE LOGIC: MAINTENANCE ---
     elif selected == "MAINTENANCE":
-        if user_role in ["Developer","Mechanical","admin"]:
+        if user_role in ["Developer","Mechanical","admin","manager"]:
 
             st.info("PREVENTIVE MAINTENANCE SCHEDULE")
             # Reuse your existing maintenance logic here
