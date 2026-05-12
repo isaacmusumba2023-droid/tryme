@@ -7,10 +7,10 @@ from supabase import create_client
 from datetime import datetime, timedelta
 import os
 
+
+
 #CONTROL VARIABLES
-g_code = ["G-002", "G-003", "G-004", "G-006", "G-007", "G-008", "G-009", "G-011", "G-012", "G-013", "G-014",
-              "G-015", "G-017", "G-018", "G-019"
-        , "G-020", "G-021", "G-022", "G-023", "G-024", "G-026", "G-027", "G-028", "G-029", "G-030"]
+
 MDL = ["3406", "3412", "C13", "C15", "C18", "C3.3", "CUMMINS", "TAD-1342GE", "TAD-1343GE", "TAD-1344GE",
            "TAD-1641GE", "TAD-532GE",
            "TAD-734GE", "TAD-840GE", "TWD-1643GE", "TWD-1645GE"]
@@ -47,10 +47,11 @@ TABLE_NAME = "GENSET ASSET"
 
 # --- 1. USER DATABASE WITH ROLES ---
 users = {
-    "ISAAC": {"pass": "1234isaac", "role": "admin"},
+    "ISAAC MUSUMBA": {"pass": "1234isaac", "role": "Developer"},
     "MANAGER": {"pass": "fleet2026", "role": "manager"},
-    "CHRISTOPHER": {"pass": "5467chris", "role": "editor"},
-    "MICHEAL": {"pass": "8910mich", "role": "viewer"}
+    "CHRISTOPHER JOHN": {"pass": "5467chris", "role": "Mechanical"},
+    "MICHEAL JOSEPH": {"pass": "8910mich", "role": "Mechanical"},
+    "SAJID NAGARJI":{"pass":"sajid@apc2026","role":"admin"}
 }
 
 # --- PAGE SETTING ---
@@ -84,7 +85,7 @@ if 'logged_in' not in st.session_state:
 if not st.session_state['logged_in']:
     with st.container():
         with st.form(key="login_form", clear_on_submit=True):
-            st.info("WELCOME TO REAL TIME ASSETS MANAGEMENT")
+            st.info("WELCOME FIELD OPERATIONS DIGITAL ASSETS MONITORING SYSTEM.(FODAMS)")
             name_1 = st.text_input("Enter your name").upper()
             passwd_1 = st.text_input("Enter password", type="password")
             submit = st.form_submit_button("Login")
@@ -101,12 +102,12 @@ else:
     # --- ROLE-BASED MENU CONFIGURATION ---
     # Define which roles can see which menu items
     all_menu_options = {
-        "OVER_VIEW": {"icon": "binoculars", "roles": ["admin", "manager", "editor", "viewer"]},
-        "ASSET_MANAGEMENT": {"icon": "boxes", "roles": ["admin", "manager", "editor"]},
-        "WORKSHOP": {"icon": "tools", "roles": ["admin", "manager", "editor"]},
-        "PART_NUMBERS": {"icon": "gear-wide-connected", "roles": ["admin", "manager", "editor", "viewer"]},
-        "MAINTENANCE": {"icon": "speedometer2", "roles": ["admin", "manager", "editor"]},
-        "GENERAL_ASSETS": {"icon": "recycle", "roles": ["admin", "manager"]}
+        "OVER_VIEW": {"icon": "binoculars", "roles": ["Developer", "manager", "Mechanical", "Mechanical","admin"]},
+        "ASSET_MANAGEMENT": {"icon": "boxes", "roles": ["Developer", "manager", "Mechanical","admin","Mechanical"]},
+        "WORKSHOP": {"icon": "tools", "roles": ["Developer", "manager", "Mechanical","admin","Mechanical"]},
+        "PART_NUMBERS": {"icon": "gear-wide-connected", "roles": ["Developer", "manager", "Mechanical", "Mechanical","admin"]},
+        "MAINTENANCE": {"icon": "speedometer2", "roles": ["Developer", "manager", "Mechanical","admin","Mechanical"]},
+        "GENERAL_ASSETS": {"icon": "recycle", "roles": ["Developer", "manager","admin","Mechanical"]}
     }
 
     user_role = st.session_state['user_role']
@@ -138,7 +139,7 @@ else:
 
     # --- SIDEBAR NAVIGATION ---
     with st.sidebar:
-        st.write(f"WELCOME **{st.session_state['user_name']}**")
+        st.caption(f"WELCOME **{st.session_state['user_name']}**")
         st.caption(f"Role: {user_role.upper()}")
         st.image('img.png', width=80)
 
@@ -299,8 +300,8 @@ else:
             except Exception as e:
                 st.error(f"Error fetching data: {e}")
         with tab3:
-            # ROLE CHECK: Only Admin can add
-            if user_role == "admin":
+            # ROLE CHECK: Only Developer can add
+            if user_role in ["Developer"]:
                 st.info("Add New Asset")
                 with st.form("add_new_asset", clear_on_submit=True):
                     col1, col2, col3, col4 = st.columns(4)
@@ -368,11 +369,11 @@ else:
 
 
             else:
-                st.warning("Permission Denied: Only Admins can add new assets.")
+                st.warning("Permission Denied: Only Developers can add new assets.")
 
         with tab4:
-            # ROLE CHECK: Admin and Editor can update, Manager cannot
-            if user_role in ["admin", "editor"]:
+            # ROLE CHECK: Developer and Mechanical can update, Manager cannot
+            if user_role in ["Developer", "Mechanical"]:
                 try:
                     df = fetch_data()
                     if not df.empty:
@@ -484,150 +485,210 @@ else:
 
     # --- PAGE LOGIC: MAINTENANCE ---
     elif selected == "MAINTENANCE":
-        st.info("PREVENTIVE MAINTENANCE SCHEDULE")
-        # Reuse your existing maintenance logic here
-        st.write("Service tracking data...")
-                # LOGIC FOR PREDICTIVE SERVICE
-        SUPABASE_URL = "https://zakswtxavrnvghpypmuz.supabase.co"
-        SUPABASE_KEY = "sb_publishable_a0FSAnDcjWOpzLkYNDCwfg_moO6MV9A"
-        TABLE_NAME = "GENSET ASSET"
-        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-        fleet_data = supabase.table('GENSET ASSET').select(
-            "G-CODE, SERIAL_NO, MODEL, KVA, LOCATION, PLANNED_PM"
-        ).execute()
-        df = pd.DataFrame(fleet_data.data)
+        if user_role in ["Developer","Mechanical","admin"]:
 
-        if not df.empty:
-            today = datetime.now().date()
-            df['PLANNED_PM'] = pd.to_datetime(df['PLANNED_PM']).dt.date
+            st.info("PREVENTIVE MAINTENANCE SCHEDULE")
+            # Reuse your existing maintenance logic here
+            st.write("Service tracking data...")
+                    # LOGIC FOR PREDICTIVE SERVICE
+            SUPABASE_URL = "https://zakswtxavrnvghpypmuz.supabase.co"
+            SUPABASE_KEY = "sb_publishable_a0FSAnDcjWOpzLkYNDCwfg_moO6MV9A"
+            TABLE_NAME = "GENSET ASSET"
+            supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+            fleet_data = supabase.table('GENSET ASSET').select(
+                "G-CODE, SERIAL_NO, MODEL, KVA, LOCATION, PLANNED_PM"
+            ).execute()
+            df = pd.DataFrame(fleet_data.data)
 
-            # --- DYNAMIC CALCULATIONS ---
-            # Use pd.to_datetime to handle strings and NaT (nulls) safely
-            df['PLANNED_PM'] = pd.to_datetime(df['PLANNED_PM']).dt.date
+            if not df.empty:
+                today = datetime.now().date()
+                df['PLANNED_PM'] = pd.to_datetime(df['PLANNED_PM']).dt.date
 
-            # Calculate with safety checks
-            df['DAYS_SINCE_LAST'] = df['PLANNED_PM'].apply(
-                lambda x: (today - x).days if pd.notnull(x) else 0
-            )
+                # --- DYNAMIC CALCULATIONS ---
+                # Use pd.to_datetime to handle strings and NaT (nulls) safely
+                df['PLANNED_PM'] = pd.to_datetime(df['PLANNED_PM']).dt.date
 
-            df['NEXT_PM'] = df['PLANNED_PM'].apply(
-                lambda x: x + timedelta(days=15) if pd.notnull(x) else today + timedelta(days=15)
-            )
+                # Calculate with safety checks
+                df['DAYS_SINCE_LAST'] = df['PLANNED_PM'].apply(
+                    lambda x: (today - x).days if pd.notnull(x) else 0
+                )
 
-            df['DAYS_LEFT'] = df['NEXT_PM'].apply(
-                lambda x: (x - today).days if pd.notnull(x) else 0
-            )
+                df['NEXT_PM'] = df['PLANNED_PM'].apply(
+                    lambda x: x + timedelta(days=15) if pd.notnull(x) else today + timedelta(days=15)
+                )
+
+                df['DAYS_LEFT'] = df['NEXT_PM'].apply(
+                    lambda x: (x - today).days if pd.notnull(x) else 0
+                )
+                # Service Type Logic:
+                # We assume a B-Service occurs every 90 days (the 6th service in the 15-day cycle)
+                def get_service_type(days_past):
+                    # If the cumulative days since a major overhaul/start is a multiple of 90
+                    # For this logic, we check if the current gap is hitting the 90-day mark
+                    return "B-SERVICE (90d)" if days_past >= 75 else "A-SERVICE (15d)"
 
 
-            # Service Type Logic:
-            # We assume a B-Service occurs every 90 days (the 6th service in the 15-day cycle)
-            def get_service_type(days_past):
-                # If the cumulative days since a major overhaul/start is a multiple of 90
-                # For this logic, we check if the current gap is hitting the 90-day mark
-                return "B-SERVICE (90d)" if days_past >= 75 else "A-SERVICE (15d)"
+                df['UPCOMING_TYPE'] = df['DAYS_SINCE_LAST'].apply(get_service_type)
+                df['STATUS'] = df['DAYS_LEFT'].apply(lambda x: '🚨 OVERDUE' if x < 0 else '✅ OK')
+
+                # --- NEW GAUGE INTEGRATION ---
+                st.subheader("Unit Specific Maintenance & History")
+                target_unit = st.selectbox("Select Generator G-CODE:", df["G-CODE"].tolist())
+
+                # Get data for the selected unit
+                unit_row = df[df["G-CODE"] == target_unit].iloc[0]
+
+                # Determine the interval (15 or 90) based on your UPCOMING_TYPE logic
+                interval = 90 if "90d" in unit_row['UPCOMING_TYPE'] else 15
+                days_elapsed = unit_row['DAYS_SINCE_LAST']
+
+                # Create the Gauge
+                import plotly.graph_objects as go
+
+                fig_gauge = go.Figure(go.Indicator(
+                    mode="gauge+number+delta",
+                    value=days_elapsed,
+                    domain={'x': [0, 1], 'y': [0, 1]},
+                    title={'text': f"Service Progress: {unit_row['UPCOMING_TYPE']}", 'font': {'size': 20}},
+                    delta={'reference': interval, 'increasing': {'color': "red"}},
+                    gauge={
+                        'axis': {'range': [0, interval], 'tickwidth': 1},
+                        'bar': {'color': "#31333F"},
+                        'steps': [
+                            {'range': [0, interval * 0.7], 'color': "#00CC96"},  # Green
+                            {'range': [interval * 0.7, interval * 0.9], 'color': "#FFA15A"},  # Orange
+                            {'range': [interval * 0.9, interval], 'color': "#EF553B"}  # Red
+                        ],
+                        'threshold': {
+                            'line': {'color': "black", 'width': 4},
+                            'thickness': 0.75,
+                            'value': interval}
+                    }
+                ))
+
+                fig_gauge.update_layout(height=350, margin=dict(l=20, r=20, t=50, b=20))
+
+                # Display Gauge and Details in columns
+                col_g1, col_g2 = st.columns([2, 1])
+                with col_g1:
+                    st.plotly_chart(fig_gauge, use_container_width=True)
+                with col_g2:
+                    st.write("### Quick Stats")
+                    st.metric("Days Remaining", unit_row['DAYS_LEFT'], delta_color="inverse")
+                    st.write(f"*Model:* {unit_row['MODEL']}")
+                    st.write(f"*Location:* {unit_row['LOCATION']}")
+                    st.write(f"*Target Date:* {unit_row['NEXT_PM']}")
 
 
-            df['UPCOMING_TYPE'] = df['DAYS_SINCE_LAST'].apply(get_service_type)
-            df['STATUS'] = df['DAYS_LEFT'].apply(lambda x: '🚨 OVERDUE' if x < 0 else '✅ OK')
 
-            # 2. Display Table
-            with st.expander("General service"):
-                st.dataframe(
-                    df[["G-CODE", "MODEL", "LOCATION", "PLANNED_PM", "NEXT_PM", "DAYS_LEFT", "UPCOMING_TYPE",
-                        "STATUS"]],
-                    hide_index=True, use_container_width=True)
+
+
+                # 2. Display Table
+                with st.expander("General service"):
+                    st.dataframe(
+                        df[["G-CODE", "MODEL", "LOCATION", "PLANNED_PM", "NEXT_PM", "DAYS_LEFT", "UPCOMING_TYPE",
+                            "STATUS"]],
+                        hide_index=True, use_container_width=True)
             "---"
             # 2. SELECTION & RESET LOGIC
-            st.subheader("Unit Specific Maintenance & History")
-            target_unit = st.selectbox("Select Generator G-CODE:", df["G-CODE"].tolist())
 
-            # Find the date of the last "B-SERVICE" to calculate the 90-day cycle reset
-            last_b_query = (
-                supabase.table("SERVICE_LOGS")
-                .select("service_date")
-                .eq("g_code", target_unit)
-                .eq("service_type", "B")
-                .order("service_date", desc=True)
-                .limit(1)
-                .execute()
-            )
+            if user_role=="Developer":
+                st.warning("Unit Specific Maintenance & History")
 
-            if last_b_query.data:
-                last_b_date = datetime.strptime(last_b_query.data[0]['service_date'], "%Y-%m-%d").date()
-                days_since_b_reset = (today - last_b_date).days
+                target_unit = st.selectbox("Select Generator G-CODE:", df["G-CODE"].tolist(),key="maintenance_generator_sector")
+
+                # Find the date of the last "B-SERVICE" to calculate the 90-day cycle reset
+                last_b_query = (
+                    supabase.table("SERVICE_LOGS")
+                    .select("service_date")
+                    .eq("g_code", target_unit)
+                    .eq("service_type", "B")
+                    .order("service_date", desc=True)
+                    .limit(1)
+                    .execute()
+                )
+
+                if last_b_query.data:
+                    last_b_date = datetime.strptime(last_b_query.data[0]['service_date'], "%Y-%m-%d").date()
+                    days_since_b_reset = (today - last_b_date).days
+                else:
+                    days_since_b_reset = 90  # Force B-Service if no history exists
+
+                # Determine next service type based on 90-day reset rule
+                if days_since_b_reset >= 90:
+                    next_service_type = "B-SERVICE"
+                    st.warning(f"🚨 Unit {target_unit} is due for a B-SERVICE (90-Day Cycle Reset)")
+                else:
+                    next_service_type = "A-SERVICE"
+                    st.info(f"✅ Next Service: {next_service_type}. ({90 - days_since_b_reset} days until B-reset)")
+
+
+
+
+                # 3. DISPLAY LAST 5 SERVICES
+                st.write("### Last 5 Services History")
+                history_res = (
+                    supabase.table("SERVICE_LOGS")
+                    .select("service_date, service_type, run_hours, notes")
+                    .eq("g_code", target_unit)
+                    .order("service_date", desc=True)
+                    .limit(5)
+                    .execute()
+                )
+
+                if history_res.data:
+                    st.table(pd.DataFrame(history_res.data))
+                else:
+                    st.caption("No history found in SERVICE_LOGS for this unit.")
+
+
+
+                # 4. ACTION: RECORD COMPLETED SERVICE
+                with st.expander(f"Record New Service for {target_unit}"):
+                    with st.form("service_update_form"):
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            comp_date = st.date_input("Completion Date", value=today)
+                            # Let user confirm type, but default it based on our reset logic
+                            actual_type = st.selectbox("Service Type Performed", options=["A", "B"],
+                                                       index=1 if next_service_type == "B-SERVICE" else 0)
+                        with col2:
+                            hrs = st.number_input("Run Hours at Service", min_value=0)
+                            notes = st.text_area("Maintenance Notes")
+
+                        if st.form_submit_button("SUBMIT SERVICE RECORD"):
+                            # Update Main Asset Table
+                            supabase.table('GENSET ASSET').update({
+                                "PLANNED_PM": str(comp_date),
+                                "RUN_Hrs": hrs
+                            }).eq("G-CODE", target_unit).execute()
+
+                            # Insert into Logs Table (Important for the reset logic!)
+                            log_data = {
+                                "g_code": target_unit,
+                                "service_date": str(comp_date),
+                                "service_type": actual_type,
+                                "run_hours": hrs,
+                                "notes": notes
+                            }
+                            supabase.table("SERVICE_LOGS").insert(log_data).execute()
+
+                            st.success("Service Logged. Cycle Reset Applied!")
+                            st.rerun()
+                #GRAPHIC VIEW
+                fig = px.scatter(
+                    df, x="G-CODE", y="DAYS_LEFT", color="STATUS",
+                    color_discrete_map={'🚨 OVERDUE': '#FF4B4B', '✅ OK': '#00CC96'},
+                    size=df['DAYS_LEFT'].abs().add(15),
+                    hover_data=["MODEL", "UPCOMING_TYPE"],
+                    title="Service Countdown (Days Remaining)"
+                )
+                fig.add_hline(y=0, line_dash="dash", line_color="orange", annotation_text="DUE DATE")
+                st.plotly_chart(fig, use_container_width=True)
+
             else:
-                days_since_b_reset = 90  # Force B-Service if no history exists
-
-            # Determine next service type based on 90-day reset rule
-            if days_since_b_reset >= 90:
-                next_service_type = "B-SERVICE"
-                st.warning(f"🚨 Unit {target_unit} is due for a B-SERVICE (90-Day Cycle Reset)")
-            else:
-                next_service_type = "A-SERVICE"
-                st.info(f"✅ Next Service: {next_service_type}. ({90 - days_since_b_reset} days until B-reset)")
-
-            # 3. DISPLAY LAST 5 SERVICES
-            st.write("### Last 5 Services History")
-            history_res = (
-                supabase.table("SERVICE_LOGS")
-                .select("service_date, service_type, run_hours, notes")
-                .eq("g_code", target_unit)
-                .order("service_date", desc=True)
-                .limit(5)
-                .execute()
-            )
-
-            if history_res.data:
-                st.table(pd.DataFrame(history_res.data))
-            else:
-                st.caption("No history found in SERVICE_LOGS for this unit.")
-
-            # 4. ACTION: RECORD COMPLETED SERVICE
-            with st.expander(f"Record New Service for {target_unit}"):
-                with st.form("service_update_form"):
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        comp_date = st.date_input("Completion Date", value=today)
-                        # Let user confirm type, but default it based on our reset logic
-                        actual_type = st.selectbox("Service Type Performed", options=["A", "B"],
-                                                   index=1 if next_service_type == "B-SERVICE" else 0)
-                    with col2:
-                        hrs = st.number_input("Run Hours at Service", min_value=0)
-                        notes = st.text_area("Maintenance Notes")
-
-                    if st.form_submit_button("SUBMIT SERVICE RECORD"):
-                        # Update Main Asset Table
-                        supabase.table('GENSET ASSET').update({
-                            "PLANNED_PM": str(comp_date),
-                            "RUN_Hrs": hrs
-                        }).eq("G-CODE", target_unit).execute()
-
-                        # Insert into Logs Table (Important for the reset logic!)
-                        log_data = {
-                            "g_code": target_unit,
-                            "service_date": str(comp_date),
-                            "service_type": actual_type,
-                            "run_hours": hrs,
-                            "notes": notes
-                        }
-                        supabase.table("SERVICE_LOGS").insert(log_data).execute()
-
-                        st.success("Service Logged. Cycle Reset Applied!")
-                        st.rerun()
-            #GRAPHIC VIEW
-            fig = px.scatter(
-                df, x="G-CODE", y="DAYS_LEFT", color="STATUS",
-                color_discrete_map={'🚨 OVERDUE': '#FF4B4B', '✅ OK': '#00CC96'},
-                size=df['DAYS_LEFT'].abs().add(15),
-                hover_data=["MODEL", "UPCOMING_TYPE"],
-                title="Service Countdown (Days Remaining)"
-            )
-            fig.add_hline(y=0, line_dash="dash", line_color="orange", annotation_text="DUE DATE")
-            st.plotly_chart(fig, use_container_width=True)
-
-        else:
-            st.warning("No data found in 'GENSET ASSET' table.")
-            # 3. Scatter Graph with Overdue Warnings
+                st.warning("Restricted access to maintain correct data entry.")
+                # 3. Scatter Graph with Overdue Warnings
 
 
 
@@ -819,9 +880,9 @@ else:
 
     # --- PAGE LOGIC: GENERAL_ASSETS ---
     elif selected == "GENERAL_ASSETS":
-        # Only Admin and Manager see this menu option
+        # Only Developer and Manager see this menu option
         st.info("General Assets Tracking")
-        if user_role == "admin":
+        if user_role == "Developer":
             SUPABASE_URL = "https://zakswtxavrnvghpypmuz.supabase.co"
             SUPABASE_KEY = "sb_publishable_a0FSAnDcjWOpzLkYNDCwfg_moO6MV9A"
             TABLE_NAME = "ASSETS"
