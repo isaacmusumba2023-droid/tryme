@@ -1,16 +1,1 @@
-
-[connections.gsheets]
-spreadsheet = "https://docs.google.com/spreadsheets/d/1xxp3o51pKuDmxbkQZqQwi8x8DuA3KhiB7A3OGPngDbs/edit?gid=0#gid=0"
-
-# From your JSON key file
-type = "service_account"
-project_id = "gensetnew"
-private_key_id = "9728eae90c2ef429bea064b14040ddd6b40b8bfd"
-private_key = "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC3HjFGXAbpoRgf\ndQk10jEBGuHtitvsDx+1dzwMw1Y+fxFGl+r3nTGQTSnApfXtzcRWLz9pCNujMMY4\n8USbv9Hb1OPSu4/2bDhS4F8FSwZWertyrwnAvCsr/sbMOZACMapPzwfMoIGej9B7\nFO0OA/rIzy5RSP+OQNvVEzNa1pUOzhiZDNYOSxRSh5Jg7SfkcVwLXNc0zCIMS01M\n0IBpABFRb43lU3QCBhKQVlv43pneol6UNy+yAQepYVqWQ1asAUxnl9sMQcMjV/Ny\nNiIg3YBUwfSuJNgyHxxtO5NWzNFoMTux1pN78ZXxtMTDDF0TMsMOBne75FYu4ius\n9XuvSBrPAgMBAAECggEALuRp7OEbGg/ZPBD960zopKZMLcbN24zh61fdxkztVHK4\nq1Gy53bXHuNLqlw1dpCnUwSlYdHVYNxYHnPWRGYiKP/C2Y+TZaC/6aUwYAwe0t16\nC/u77SGikpEbOmgRMyahvO9AyYtetgqQ8jvhGqI1QeAgNcuSOcztHorcr0ndAN2h\nnOlHw6OTEG9Ti9Og2X4FSW6eaztGT4s/GszepR/gLMxySCMfSx++zZzV0rnvF3As\nqF4dQmFR71AvGPDa19AMh38MJh+S9DkBJCmRTHaKTaiUshE8C2YBPMps3yvXMpDP\nMvYc6pDsw7MfSwwRI61FhwBCpVsFM8Uwo3NFoXMZkQKBgQDwNIUbw16dzGqp36Jf\nDTXzREM/rYfooVLD0wtDLkKTLiU5drBGrQHY4OCDL20Igc0CuXWWcZQx4GKBR/Bj\nL081XOKvG+U4qKLz/QCu7s4a1zVPHOAFxvBWuSbWCLcVr8lva01s8jngaOot0E4Y\nV0reB8tUkQ7ehdce+nV0mAHf/wKBgQDDKLK0AGsFrrCwae+EassgyYrDdFsyNo6q\nGm0Czokm2CHSVljOrWe2gstoS6HpFSahbWN+r9qydmanURXyNAULKIU72KFpV9g8\nleznEm0DgtQ8ZYdzHBkAtX9FVLmKSo3EyhDrpbAvEY19awfZ0p7ROmcin8DMIejl\ntqxmenPFMQKBgEerQ/PurPJkJYcd5LJ7nJdCzNXZDu4IBEvNUlTvHooPgKfOk/Xi\ndOSi5BoAMoYRRHwFneIPbWocSwfL0Rum5/lCB5i7t/7ZwhUObf/D3NcBUzSRpv3S\nR694eu/tlcLwuid2WpmhBEfCxex5dHOqx/nLVY2b4lXelTr2+8iX+ic9AoGBAJ/p\nBSTBAvCRB25GH2BdMTwYaH9nJCKs2ZFAPfqCyZbumigDYJlZNRYzbgBzmKOoFRNI\n0rHH3mdE5TBMHLNtNITEGwfCpd/vftuF7awZSQILfWRPvQDxEPunvDVPCwjpteh9\nugecqBSpSUpvHOu6zS+br06LoCqjznYLjJAb3ijBAoGBAINQmQPAMdSsO1eTgoDd\nPjv4xkiaqvseaSSkvTpmtLuRugin3geS/HF0mYaYcwwiLXUOsmwiEqmGc26Muuag\nYF6fvKrmirLaTfokJMKZ49pjzry5EVmgSoycE3z47XTpp6K5RzyOtFKbkVngMycB\nI9JFIcCevEVTiNtUZ2uVbMhE\n-----END PRIVATE KEY-----\n"
-client_email = "isaacmusuma1000000@gensetnew.iam.gserviceaccount.com"
-client_id = "111936772592746486806"
-auth_uri = "https://accounts.google.com/o/oauth2/auth"
-token_uri =  "https://oauth2.googleapis.com/token"
-auth_provider_x509_cert_url =  "https://www.googleapis.com/oauth2/v1/certs"
-client_x509_cert_url = "https://www.googleapis.com/robot/v1/metadata/x509/isaacmusuma1000000%40gensetnew.iam.gserviceaccount.com"
-universe_domain="googleapis.com"
+.streamlit
