@@ -1,84 +1,90 @@
-
 import streamlit as st
-import pandas as pd
-import plotly.express as px
+from pygments.lexers import resource
+from supabase import create_client,client
 from streamlit_option_menu import option_menu
-from supabase import create_client
-from datetime import datetime, timedelta
-import os
+import pandas as pd
+from datetime import datetime, timedelta,date
+import plotly.express as px
 
 
+max_date = datetime.today().date()
+min_date = date(1990,1,1)
 
-#CONTROL VARIABLES
-
-MDL = ["3406", "3412", "C13", "C15", "C18", "C3.3", "CUMMINS", "TAD-1342GE", "TAD-1343GE", "TAD-1344GE",
-           "TAD-1641GE", "TAD-532GE",
-           "TAD-734GE", "TAD-840GE", "TWD-1643GE", "TWD-1645GE"]
-TYP = ["CAT", "VOLVO", "CUMMINS", "BAUDOUIN"]
-AR = ["SK", "EK", "RA"]
-FLD = ["NORTH", "SEK", "WAFRA", "WEST","MISHRIF","WORKSHOP"]
-# parts sectioned
-cat_make = ['---click here---', 3406, 3412, "C32", "6M16G2DO/S", "6M16G6G4DO/S", "C13", 'C15', 'C18', 'C3.2']
-cat_kva = ['---click here---', 60, 100, 135, 200, 201, 250, 320, 400, 500, 545, 600, 625, 650, 770, 810, 1100, 1500]
-vol_make = ['---click here---', 'TAD1341GE', 'TAD1342GE', 'TAD1343GE', 'TAD1344GE', 'TAD1641GE', 'TAD1642GE',
-                'TAD532GE', 'TAD734GE',
-                'TAD840GE', 'TAD841GE', 'TWD1643GE', 'TWD1645GE']
-vol_kva = ['---click here---', 105, 200, 201, 225, 246, 250, 251, 252, 300, 316, 320, 330, 364, 400, 412, 413, 416,
-               500, 509, 546, 574, 595, 635, 705]
-cum_make = ['---click here---', 'CUMMINS']
-cum_kva = ['---click here---', 13]
-bau_make = ['---click here---', 'BAUDOUIN']
-bau_kva = ['---click here---', 200, 250]
-CONTRACT_OPTIONS=['--select--','70006301','70005701']
-USER_OPTIONS=['ESP-KOC','JO-ESP','WORKSHOP','PDI','OFF-HIRE','MOBILE','BURGAN YARD','WHSP-POWER','ABDALY FARM',
-                  'DESALTER PROJECT','MISHRIF','NEW GENERATOR','FIELD_OP REPAIR','READY']
-#CALLING STLE.CSS
-def local_css(file_name):
-    if os.path.exists(file_name):
-        with open(file_name) as f:
-            st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
-local_css("style.css")
-
-
-# --- CONFIGURATION ---
-SUPABASE_URL = "https://zakswtxavrnvghpypmuz.supabase.co"
-SUPABASE_KEY = "sb_publishable_a0FSAnDcjWOpzLkYNDCwfg_moO6MV9A"
-TABLE_NAME = "GENSET ASSET"
-
-# --- 1. USER DATABASE WITH ROLES ---
-users = {
-    "ISAAC MUSUMBA": {"pass": "1234isaac", "role": "Developer"},
-    "MANAGER": {"pass": "fleet2026", "role": "manager"},
-    "CHRISTOPHER JOHN": {"pass": "5467chris", "role": "Mechanical"},
-    "MICHEAL JOSEPH": {"pass": "8910mich", "role": "Mechanical"},
-    "SAJID NAGARJI":{"pass":"sajid@apc2026","role":"admin"}
-}
-
-# --- PAGE SETTING ---
+#page configuration
 st.set_page_config(
-    page_title="Field Options",
-    page_icon="home.png",
+    page_title="GENSET ASSET",
     layout="wide",
     initial_sidebar_state="expanded",
+    menu_items={}
 )
-#st.sidebar.write("home")
+st.markdown(
+        """
+        <style>
+            /* Remove padding from the main block-container */
+            .block-container {
+                padding-top: 1rem;
+                padding-bottom: 0rem;
+                padding-left: 1rem;
+                padding-right: 1rem;
+            }
+            /* Specifically target the header to remove its height if not needed */
+            header {
+                visibility: hidden;
+                height: 0px;
+            }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
 
-# --- CACHING & CONNECTION ---
+#SYSTEM VARIABLES
+USERS_LIST=['WORKSHOP','ESP-KOC','PDI','BURGUN YARD','ABDALY FARM','DESALTER PROJECT','FIELD OP.REPAIR','JO-ESP',
+            'MISHRIF','MOBILE','NEW GENERATOR','OFF-HIRE','READY','WSH-POWER']
+FIELD_LIST=["NORTH","WORKSHOP","SEK","EK","PDI", "WAFRA", "WEST","MISHRIF"]
+MODEL_LIST=["3406", "3412", "C13", "C15", "C18", "C3.3", "CUMMINS", "TAD-1342GE", "TAD-1343GE", "TAD-1344GE", "TAD-1641GE", "TAD-532GE",
+           "TAD-734GE", "TAD-840GE", "TWD-1643GE", "TWD-1645GE"]
+TYPE_LIST=["CAT", "VOLVO", "CUMMINS", "BAUDOUIN"]
+Area_LIST=["SK", "EK", "RA","NK"]
+CONTRACT_OPTIONS=['--select--','70006301','70005701']
+# Initialize connection.
+
+
 @st.cache_resource
 def init_connection():
-    return create_client(SUPABASE_URL, SUPABASE_KEY)
+    url = st.secrets["SUPABASE_URL"]
+    key = st.secrets["SUPABASE_KEY"]
+    return create_client(url, key)
 
+TABLE_NAME="GENSET ASSET"
 
 supabase = init_connection()
 
 
+@st.cache_data()
+def run_query():
+    return supabase.table("GENSET ASSET").select("*").execute()
+rows = run_query()
 @st.cache_data(ttl=600)
-def get_cached_fleet_data():
-    response = supabase.table(TABLE_NAME).select("*").execute()
-    return pd.DataFrame(response.data)
+def get_full_dataframe():
+     response = supabase.table("GENSET ASSET").select("*").execute()
+     return pd.DataFrame(response.data)
+#new style
 
 
-# --- LOGIN SESSION STATE ---
+#---USERS ASSIGNED TO DATABASE----
+users = {
+    "ISAAC MUSUMBA": {"pass": "1234isaac", "role": "Developer"},
+    "MANAGER": {"pass": "fleet2026", "role": "manager"},
+    "SUPERVISOR": {"pass": "@APC/supervisor", "role": "supervisor"},
+    "engineer": {"pass": "@APC/engineer", "role": "engineer"},
+    "TECHNICIAN": {"pass": "@technician", "role": "technician"},
+    "ADMIN": {"pass": "@APCadmin", "role": "admin"},
+    "CHRISTOPHER JOHN": {"pass": "5467chris", "role": "Mechanical"},
+    "MICHEAL JOSE": {"pass": "8910mich", "role": "Mechanical"},
+    "SAJID NAGARJI":{"pass":"sajid@apc2026","role":"admin"}
+}
+
+#app  (login) approach
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
 
@@ -99,45 +105,24 @@ if not st.session_state['logged_in']:
                 else:
                     st.error("Invalid credentials")
 else:
-    # --- ROLE-BASED MENU CONFIGURATION ---
-    # Define which roles can see which menu items
-    all_menu_options = {
-        "OVER_VIEW": {"icon": "binoculars", "roles": ["Developer", "manager", "Mechanical", "Mechanical","admin"]},
-        "ASSET_MANAGEMENT": {"icon": "boxes", "roles": ["Developer", "manager", "Mechanical","admin","Mechanical"]},
-        "WORKSHOP": {"icon": "tools", "roles": ["Developer", "manager", "Mechanical","admin","Mechanical"]},
-        "PART_NUMBERS": {"icon": "gear-wide-connected", "roles": ["Developer", "manager", "Mechanical", "Mechanical","admin"]},
-        "MAINTENANCE": {"icon": "speedometer2", "roles": ["Developer", "manager", "Mechanical","admin","Mechanical"]},
-        "GENERAL_ASSETS": {"icon": "recycle", "roles": ["Developer", "manager","admin","Mechanical"]}
-    }
+    all_menu_options ={
+        "GENERAL ASSETS": {"icon": "diagram-3-fill", "roles": ["Developer", "manager", "Mechanical", "supervisor","admin","engineer"]},
+        "ASSET_MANAGEMENT": {"icon": "boxes", "roles": ["Developer", "manager", "supervisor", "admin", "Mechanical", "engineer"]},
+        "WORKSHOP": {"icon": "tools", "roles": ["Developer", "manager", "Mechanical", "admin","supervisor"]},
+        "MAINTENANCE": {"icon": "speedometer2", "roles": ["Developer", "manager", "supervisor", "admin", "Mechanical", "engineer"]},
+        "PARTS AND PRODUCTS":{"icon": "gear-wide-connected", "roles": ["Developer", "manager", "supervisor", "Mechanical","admin"]},
+        "FIXED ASSETS":{"icon":"arrow-90deg-right", "roles": ["Developer", "manager", "supervisor", "Mechanical", "engineer"]},
+        "FLEET MANAGEMENT":{"icon":"car-front","roles": ["Developer", "manager", "supervisor", "Mechanical", "engineer"]},
+        "SAFETY_UNIT":{"icon":"lightbulb","roles": ["Developer", "manager", "supervisor", "Mechanical", "engineer"]},
 
+    }
     user_role = st.session_state['user_role']
 
     # Filter the menu based on the user's role
     allowed_options = [opt for opt, data in all_menu_options.items() if user_role in data["roles"]]
     allowed_icons = [all_menu_options[opt]["icon"] for opt in allowed_options]
 
-    # --- UI STYLING ---
-    st.markdown(
-        """
-        <style>
-            /* Remove padding from the main block-container */
-            .block-container {
-                padding-top: 1rem;
-                padding-bottom: 0rem;
-                padding-left: 5rem;
-                padding-right: 5rem;
-            }
-            /* Specifically target the header to remove its height if not needed */
-            header {
-                visibility: hidden;
-                height: 0px;
-            }
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
-
-    # --- SIDEBAR NAVIGATION ---
+    #----SIDEBAR FLOW WITH LOGGING @PASS
     with st.sidebar:
         st.caption(f"WELCOME **{st.session_state['user_name']}**")
         st.caption(f"Role: {user_role.upper()}")
@@ -155,137 +140,135 @@ else:
                 "nav-link-selected": {"background-color": "#b3d9ff"},
             }
         )
+        if st.sidebar.button("REFRESH PAGE"):
+            st.rerun()
+
         if st.button("Log Out"):
             st.session_state['logged_in'] = False
             st.rerun()
 
-    # --- DATA LOADING ---
-    df_all = get_cached_fleet_data()
+    #-----program line in----(source code)
+    if selected  == "GENERAL ASSETS":
+        st.info(f"****WELCOME TO FIELD_OPERATIONS INTERNAL DIGITAL SUPERVISORLY & MONITORING SYSTEM****")
+        #Facing data with function to filter
 
-    # --- PAGE LOGIC: OVER_VIEW ---
-    if selected == "OVER_VIEW":
-        st.info("GENSET FIELD_OPERATIONS DATA ANALYSIS")
-        #Logic for metrics...
-        resource_w = supabase.table("GENSET ASSET").select("G-CODE,SERIAL_NO,MODEL,TYPE,KVA,RUN_Hrs,"
-                                                           "AREA,LOCATION,MOVED_FROM,REASON").eq('LOCATION',
-                                                                                                 'WORKSHOP').execute()
-        resource_KOC = supabase.table("GENSET ASSET").select("G-CODE,SERIAL_NO,MODEL,TYPE,KVA,RUN_Hrs,"
-                                                             "AREA,LOCATION,MOVED_FROM,REASON").eq('USER',
-                                                                                                   'ESP-KOC').execute()
-        resource_PDI = supabase.table("GENSET ASSET").select("G-CODE,SERIAL_NO,MODEL,TYPE,KVA,RUN_Hrs,"
-                                                             "AREA,LOCATION,MOVED_FROM,REASON").eq('LOCATION',
-                                                                                                   'PDI').execute()
-        resourse_use = supabase.table("GENSET ASSET").select("*").eq('USER', 'NEW GENSET').execute()
-        resourse_jo = supabase.table("GENSET ASSET").select("*").eq('USER', 'JO-ESP').execute()
-        resourse_wksp = supabase.table("GENSET ASSET").select("*").eq('USER', 'WORKSHOP_POWER').execute()
-        resourse_mobile = supabase.table("GENSET ASSET").select("*").eq('USER', 'MOBILE').execute()
-        resourse_offhire = supabase.table("GENSET ASSET").select("*").eq('USER', 'OFF-HIRE').execute()
-        resourse_kva = supabase.table("GENSET ASSET").select('*').gte('KVA', 200).execute()
-        kva_below = supabase.table("GENSET ASSET").select('*').lt('KVA', 200).execute()
-        ready = supabase.table("GENSET ASSET").select('*').eq('USER', 'READY').execute()
-        burgan = supabase.table("GENSET ASSET").select('*').eq('USER', 'BURGAN').execute()
+        #-----write code here for (general assets)----
+        df=get_full_dataframe()
+        V_greater = supabase.table("GENSET ASSET").select("*").gte("KVA", 200).execute()
+        #VALVE COUNT
+        V_TOTAL= len(df)
+        V_WORKSHOP= len(df[df['LOCATION'] == "WORKSHOP"])
+        V_USER1 = len(df[df['USER'] == "ESP-KOC"])
+        V_USER10 = len(df[df['USER'] == "READY"])
+        V_USER2 = len(df[df['USER'] == "JO-ESP"])
+        V_USER3 = len(df[df['USER'] == "BURGUN YARD"])
+        V_USER11 = len(df[df['USER'] == "WSH-POWER"])
+        V_USER5 = len(df[df['USER'] == "MOBILE"])
+        V_USER4 = len(df[df['LOCATION'] == "PDI"])
+        V_USER12 = len(df[df['USER'] == "NEW GENERATOR"])
+        V_USER6 = len(df[df['USER'] == "OFF-HIRE"])
+        V_USER7 =len(df[df['USER'] == "MISHRIF"])
+        V_USER13 = len(df[df['USER'] == "DESALTER PROJECT"])
+        V_USER8 = len(df[df['USER'] == "FIELD OP.REPAIR"])
+        V_USER9 = len(df[df['USER'] == "ABDALY FARM"])
+        V_KVA1 = len(V_greater.data)
+        V_B2= V_TOTAL-V_KVA1
 
-        df_WORKSHOP = resource_w.data
-        df_KOC = resource_KOC.data
-        df_PDI = resource_PDI.data
-        df_new = resourse_use.data
-        df_jo = resourse_jo.data
-        df_wksp = resourse_wksp.data
-        df_mobile = resourse_mobile.data
-        df_offhire = resourse_offhire.data
-        df_kva = resourse_kva.data
-        df_below = kva_below.data
-        df_ready = ready.data
-        df_burgan = burgan.data
-
-        V_1 = len(df_WORKSHOP)
-        V_2 = len(df_KOC)
-        V_3 = len(df_PDI)
-        V_4 = len(df_new)
-        V_5 = len(df_jo)
-        V_6 = len(df_wksp)
-        V_7 = len(df_mobile)
-        V_8 = len(df_offhire)
-        V_9 = len(df_kva)
-        V_10 = len(df_below)
-        V_11 = len(df_ready)
-        V_12 = len(df_burgan)
-
-        with st.container():
-            col1, col2, col3, col4, col5, col6 = st.columns(6)
-            with col1:
-                st.metric('WORKSHOP', V_1, '+', border=True, height=120, delta_color='green')
-                st.metric('READY-GENSET', V_11, '+', border=True, height=120, delta_color='green')
-            with col2:
-                st.metric('ESP-KOC', V_2, '+', border=True, height=120, delta_color='green')
-                st.metric('MOBILE', V_7, '+', border=True, height=120, delta_color='green')
-            with col3:
-                st.metric('UNDER PDI', V_3, '+', border=True, height=120, delta_color='green')
-                st.metric('OFF-HIRE', V_8, '+', border=True, height=120, delta_color='green')
-            with col4:
-                st.metric('NEW_GENSET', V_4, '+', border=True, height=120, delta_color='green')
-                st.metric('KVA=>200', V_9, '+', border=True, height=120, delta_color='green')
-            with col5:
-                st.metric('JO-ESP', V_5, '+', border=True, height=120, delta_color='green')
-                st.metric('KVA<200', V_10, '+', border=True, height=120, delta_color='green')
-            with col6:
-                st.metric('WORKSHOP_POWER', V_6, '+', border=True, height=120, delta_color='green')
-                st.metric('BURGAN', V_12, '+', border=True, height=120, delta_color='green')
-
+        #INSIDE COL ON PAGES
+        col1,col2,col3,col4,col5 = st.columns(5)
+        with col1:
+            st.metric("TOTAL ASSETS",value=V_TOTAL,delta_color="blue",border=True,height=120,delta="+")
+            st.metric("WORKSHOP",value=V_WORKSHOP,delta_color="blue",border=True,height=120,delta="+")
+            st.metric("ESP-KOC",value=V_USER1,delta_color="blue",border=True,height=120,delta="+")
+            st.metric("READY",value=V_USER10,delta_color="blue",border=True,height=120,delta="+")
+        with col2:
+            st.metric("JO-ESP",value=V_USER2,delta_color="blue",border=True,height=120,delta="+")
+            st.metric("BURGAN YARD",value=V_USER3,delta_color="blue",border=True,height=120,delta="+")
+            st.metric("WSH-POWER",value=V_USER11,delta_color="blue",border=True,height=120,delta="+")
+            st.metric("KVA<200",value=V_B2,delta_color="blue",border=True,height=120,delta="+")
+        with col3:
+            st.metric("PDI",value=V_USER4,delta_color="blue",border=True,height=120,delta="+")
+            st.metric("MOBILE",value=V_USER5,delta_color="blue",border=True,height=120,delta="+")
+            st.metric("NEW-GENERATOR",value=V_USER12,delta_color="blue",border=True,height=120,delta="+")
+        with col4:
+            st.metric("OFF-HIRE",value=V_USER6,delta_color="blue",border=True,height=120,delta="+")
+            st.metric("MISHRIF",value=V_USER7,delta_color="blue",border=True,height=120,delta="+")
+            st.metric("DESALTER-PROJECT",value=V_USER13,delta_color="blue",border=True,height=120,delta="+")
+        with col5:
+            st.metric("FIELD OP.REPAIR",value=V_USER8,delta_color="blue",border=True,height=120,delta="+")
+            st.metric("ABDALY FARM",value=V_USER9,delta_color="blue",border=True,height=120,delta="+")
+            st.metric("KVA=>200",value=V_KVA1,delta_color="blue",border=True,height=120,delta="+")
         "---"
-        with st.expander("DATA_VISUALIZATION"):
+        st.caption("REPORTS")
+        col1,col2,col3=st.columns(3)
+        with col1:
+            with st.expander("READY GENERATORS"):
+                df=supabase.table("GENSET ASSET").select("G-CODE,SERIAL_NO,MODEL,KVA,LOCATION").eq("USER","READY").execute()
+                df_2=df.data
+                st.dataframe(df_2)
+        with col2:
+            with st.expander("UNDER WORKSHOP"):
+                df = supabase.table("GENSET ASSET").select("G-CODE,SERIAL_NO,MODEL,KVA,LOCATION").eq("LOCATION",
+                                                                                                     "WORKSHOP").execute()
+                df_2 = df.data
+                st.dataframe(df_2)
+        with col3:
+            with st.expander("UNDER PDI"):
+                df = supabase.table("GENSET ASSET").select("G-CODE,SERIAL_NO,MODEL,KVA,LOCATION").eq("LOCATION",
+                                                                                                     "PDI").execute()
+                df_2 = df.data
+                st.dataframe(df_2)
+        st.caption("DATA_VISUALIZATION")
+        with st.expander("CLICK HERE"):
             # Simple native replacement for your matplotlib block:
             chart_data = pd.DataFrame({
-                'Location': ['WORKSHOP', 'ESP-KOC', 'PDI', 'JO-ESP', 'WKSP_POWER'],
-                'Quantity': [V_1, V_2, V_3, V_5, V_6]
+                'Location': ['WORKSHOP', 'ESP-KOC', 'PDI', 'JO-ESP', 'BURGAN YARD'],
+                'Quantity': [V_WORKSHOP, V_USER1, V_USER4, V_USER2, V_USER3]
             })
             st.bar_chart(chart_data, x='Location', y='Quantity', color="#1a8cff")
 
-    # --- PAGE LOGIC: ASSET_MANAGEMENT ---
     elif selected == "ASSET_MANAGEMENT":
-        st.info(f"ASSET MANAGEMENT - ACCESS LEVEL: {user_role.upper()}")
+        st.info("**Welcome to asset_management(update,add_asset,filter)**")
+        #-----write code here for asset management----
         tab1, tab2, tab3, tab4 = st.tabs(["View Assets", "Filter & Download", "Add New Asset", "Update Asset"])
-        def fetch_data():
-            response = supabase.table(TABLE_NAME).select("*").execute()
-            return pd.DataFrame(response.data)
 
+        df=get_full_dataframe()
         with tab1:
-            st.subheader("Current Field Assets")
-#            st.dataframe(df_all, use_container_width=True, hide_index=True)
+            st.subheader("Current Assets")
             try:
-                df = fetch_data()
+                df=get_full_dataframe()
                 if not df.empty:
                     st.dataframe(df, use_container_width=True, hide_index=True, height=600)
                     st.info(f"Total Assets: {len(df)}")
                 else:
-                    st.warning("No assets found in the database.")
+                    st.warning("No Assets Available")
             except Exception as e:
-                st.error(f"Error fetching data: {e}")
+                st.error(f"error fetching data {e}")
 
         with tab2:
-            # Filter logic (same as your original)
-            st.info("🔍 Filter & Download Assets")
+            st.subheader("Filter & Download")
             try:
-                df = fetch_data()
+                df=get_full_dataframe()
                 if not df.empty:
-                    #                    st.write("### Apply Filters")
-                    col_f1, col_f2 = st.columns(2)
+                    col_f1, col_f2, col_f3 = st.columns(3)
                     with col_f1:
-                        # Get unique locations, handling potential None values
-                        locations = sorted([str(loc) for loc in df["LOCATION"].unique() if loc is not None])
-                        selected_location = st.multiselect("Filter by Location", options=locations)
+                        loctions=sorted([str(u) for u in df["LOCATION"].unique() if u is not None])
+                        selected_location=st.multiselect("Select Location", options=loctions)
                     with col_f2:
-                        # Get unique users, handling potential None values
-                        users = sorted([str(u) for u in df["USER"].unique() if u is not None])
-                        selected_user = st.multiselect("Filter by User", options=users)
-                    # Apply filters
-                    filtered_df = df.copy()
+                        kvas=sorted([int(u) for u in df["KVA"].unique() if u is not None])
+                        selected_kvas=st.multiselect("Select KVA", options=kvas)
+                    with col_f3:
+                        users=sorted([str(u) for u in df["USER"].unique() if u is not None])
+                        selected_users=st.multiselect("Select User", options=users)
+                    filtered_df=df.copy()
                     if selected_location:
-                        filtered_df = filtered_df[filtered_df["LOCATION"].astype(str).isin(selected_location)]
-                    if selected_user:
-                        filtered_df = filtered_df[filtered_df["USER"].astype(str).isin(selected_user)]
-                    st.write("### Filtered Results")
-                    st.dataframe(filtered_df, use_container_width=True)
+                        filtered_df=filtered_df[filtered_df["LOCATION"].astype(str).isin(selected_location)]
+                    if selected_kvas:
+                        filtered_df=filtered_df[filtered_df["KVA"].astype(int).isin(selected_kvas)]
+                    if selected_users:
+                        filtered_df=filtered_df[filtered_df["USER"].astype(str).isin(selected_users)]
+                    st.write("filtered results")
+                    st.dataframe(filtered_df, use_container_width=True, height=300)
                     st.info(f"Showing {len(filtered_df)} of {len(df)} total assets.")
                     if not filtered_df.empty:
                         csv = filtered_df.to_csv(index=False).encode('utf-8')
@@ -298,32 +281,31 @@ else:
                 else:
                     st.warning("No assets found in the database.")
             except Exception as e:
-                st.error(f"Error fetching data: {e}")
+                st.error(f"error fetching data {e}")
         with tab3:
-            # ROLE CHECK: Only Developer can add
-            if user_role in ["Developer"]:
-                st.info("Add New Asset")
+            if user_role in ['Developer','manager','supervisor','engineer']:
+                st.write("ADD NEW ASSETS:")
                 with st.form("add_new_asset", clear_on_submit=True):
                     col1, col2, col3, col4 = st.columns(4)
                     with col1:
                         g_code = st.text_input("G-CODE")
                         serial_no = st.text_input("SERIAL_NO")
-                        model = st.selectbox("MODEL", options=MDL)
-                        asset_type = st.selectbox("TYPE", options=TYP)
-                        contract = st.selectbox('CONTRACT_NO :', options=['--select--', 70006301, 70005701])
+                        model = st.selectbox("MODEL", options=MODEL_LIST)
+                        asset_type = st.selectbox("TYPE", options=TYPE_LIST)
+                        contract = st.selectbox('CONTRACT_NO :', options=CONTRACT_OPTIONS)
                     with col2:
                         kva = st.number_input("KVA", min_value=0, step=1)
                         user_id = st.number_input("user_id", min_value=0, step=1)
-                        manuf_yr = st.date_input("MANUF_YR")
+                        manuf_yr = st.date_input("MANUF_YR",min_value=min_date,max_value=max_date)
                         service_yr_koc = st.date_input("SERVICE_YR_KOC")
                     with col3:
                         run_hrs = st.number_input("RUN_Hrs", min_value=0, step=1)
-                        area = st.selectbox("AREA", options=AR)
+                        area = st.selectbox("AREA", options=Area_LIST)
                         appr_kva = st.number_input("APPR_KVA", min_value=0, step=1)
                         location = st.text_input("LOCATION")
-                        field = st.selectbox("FIELD", options=FLD)
+                        field = st.selectbox("FIELD", options=FIELD_LIST)
                     with col4:
-                        user = st.selectbox("USER", options=USER_OPTIONS)
+                        user = st.selectbox("USER", options=USERS_LIST)
                         crew = st.number_input("CREW", min_value=0, step=1)
                         movement_date = st.date_input("MOVEMENT_DATE")
                         moved_from = st.text_input("MOVED_FROM")
@@ -372,584 +354,456 @@ else:
                 st.warning("Permission Denied: Only Developers can add new assets.")
 
         with tab4:
-            # ROLE CHECK: Developer and Mechanical can update, Manager cannot
-            if user_role in ["Developer", "Mechanical"]:
+            if user_role in ['Developer', 'manager', 'supervisor', 'engineer']:
                 try:
-                    df = fetch_data()
+                    df = get_full_dataframe()
+                    st.cache_data()
                     if not df.empty:
-                        asset_list = df["G-CODE"].tolist()
-                        selected_gcode = st.selectbox("Select G-CODE to update", asset_list)
-                        asset_data = df[df["G-CODE"] == selected_gcode].iloc[0]
-                        with st.form("update_form"):
-                            st.subheader("Update Asset")
-                            col1, col2, col3 = st.columns(3)
-                            with col1:
-                                current_contract = str(asset_data.get("CONTRACT_NO", "--SELECT--"))
-                                if current_contract not in CONTRACT_OPTIONS:
-                                    temp_option = CONTRACT_OPTIONS + [current_contract]
-                                else:
-                                    temp_option = CONTRACT_OPTIONS
-                                u_contract = st.selectbox("CONTRACT_NO", options=temp_option, index=temp_option.index(current_contract))
-                                u_serial_no = st.text_input("SERIAL_NO", value=str(asset_data.get("SERIAL_NO", "")))
-                                current_model = str(asset_data.get("MODEL", ""))
-                                if current_model not in MDL:
-                                    temp_model = MDL + [current_model]
-                                else:
-                                    temp_model = MDL
+                        # 1. Get the list of codes for the dropdown
+                        g_code_options = df["G-CODE"].tolist()
+                        select_gcode = st.selectbox("SELECT G-CODE:", options=g_code_options)
 
-                                u_model = st.selectbox("MODEL", options=temp_model, index=temp_model.index(current_model))
-                                current_type = str(asset_data.get("TYPE", ""))
-                                if current_type not in TYP:
-                                    temp_type = TYP + [current_type]
+                        # 2. Extract the specific row as a dictionary (use to_dict!)
+                        asset_data = df[df["G-CODE"] == select_gcode].iloc[0].to_dict()
+
+                        # 3. Start the form
+                        with st.form("update_asset_form"):
+                            st.caption(f"UPDATING ASSET: {select_gcode}")
+                            col1, col2, col3 = st.columns(3)
+
+                            with col1:
+                                # FIX: Use asset_data, not asset_list
+                                current_contract = str(asset_data.get("CONTRACT_NO", ""))
+
+                                # Handle dropdown logic safely
+                                temp_contract = CONTRACT_OPTIONS if current_contract in CONTRACT_OPTIONS else [current_contract] + CONTRACT_OPTIONS
+                                u_contract = st.selectbox("CONTRACT_NO:", options=temp_contract,
+                                                          index=temp_contract.index(current_contract))
+
+                                u_serial_no = st.text_input("SERIAL_NO", value=str(asset_data.get("SERIAL_NO", "")))
+
+                                current_model = str(asset_data.get("MODEL", ""))
+                                if current_model not in MODEL_LIST:
+                                    temp_model = MODEL_LIST + [current_model]
                                 else:
-                                    temp_type = TYP
+                                    temp_model = MODEL_LIST
+
+                                u_model = st.selectbox("MODEL", options=temp_model,
+                                                       index=temp_model.index(current_model))
+                                current_type = str(asset_data.get("TYPE", ""))
+                                if current_type not in TYPE_LIST:
+                                    temp_type = TYPE_LIST + [current_type]
+                                else:
+                                    temp_type = TYPE_LIST
 
                                 u_type = st.selectbox("TYPE", options=temp_type, index=temp_type.index(current_type))
 
                                 u_kva = st.number_input("KVA", value=int(asset_data.get("KVA", 0)))
 
                                 u_user_id = st.number_input("user_id", value=int(asset_data.get("user_id", 0)))
-                            with col2:
+                                with col2:
 
-                                def parse_date(date_str):
-                                    try:
-                                        return datetime.strptime(date_str, "%Y-%m-%d").date()
-                                    except:
-                                        return datetime.now().date()
+                                    def parse_date(date_str):
+                                        try:
+                                            return datetime.strptime(date_str, "%Y-%m-%d").date()
+                                        except:
+                                            return datetime.now().date()
 
 
-                                u_manuf_yr = st.date_input("MANUF_YR", value=parse_date(asset_data.get("MANUF_YR", "")))
-                                u_service_yr_koc = st.date_input("SERVICE_YR_KOC",
-                                                                 value=parse_date(asset_data.get("SERVICE_YR_KOC", "")))
-                                u_run_hrs = st.number_input("RUN_Hrs", value=int(asset_data.get("RUN_Hrs", 0)))
+                                    u_manuf_yr = st.date_input("MANUF_YR",
+                                                               value=parse_date(asset_data.get("MANUF_YR", "")))
+                                    u_service_yr_koc = st.date_input("SERVICE_YR_KOC",
+                                                                     value=parse_date(
+                                                                         asset_data.get("SERVICE_YR_KOC", "")))
+                                    u_run_hrs = st.number_input("RUN_Hrs", value=int(asset_data.get("RUN_Hrs", 0)))
 
-                                u_area = st.text_input("AREA", value=str(asset_data.get("AREA", "")))
-                                u_appr_kva = st.number_input("APPR_KVA", value=int(asset_data.get("APPR_KVA", 0)))
-                                u_location = st.text_input("LOCATION", value=str(asset_data.get("LOCATION", "")))
-                            with col3:
-                                # adding options for field during update
-                                current_field = str(asset_data.get("FIELD", ""))
-                                f_options = FLD if current_field in FLD else FLD + [current_field]
-                                u_field = st.selectbox("FIELD", options=f_options, index=f_options.index(current_field))
+                                    u_area = st.text_input("AREA", value=str(asset_data.get("AREA", "")))
+                                    u_appr_kva = st.number_input("APPR_KVA", value=int(asset_data.get("APPR_KVA", 0)))
+                                    u_location = st.text_input("LOCATION", value=str(asset_data.get("LOCATION", "")))
+                                with col3:
+                                    # adding options for field during update
+                                    current_field = str(asset_data.get("FIELD", ""))
+                                    f_options = FIELD_LIST if current_field in FIELD_LIST else FIELD_LIST + [
+                                        current_field]
+                                    u_field = st.selectbox("FIELD", options=f_options,
+                                                           index=f_options.index(current_field))
 
-                                # adding select options for USER
-                                current_user = str(asset_data.get("USER", ""))
-                                u_options = USER_OPTIONS if current_user in USER_OPTIONS else USER_OPTIONS + [
-                                    current_user]
-                                u_user = st.selectbox("USER", options=u_options, index=u_options.index(current_user))
-                                # read me again mr.isaac
+                                    # adding select options for USER
+                                    current_user = str(asset_data.get("USER", ""))
+                                    u_options = USERS_LIST if current_user in USERS_LIST else USERS_LIST + [
+                                        current_user]
+                                    u_user = st.selectbox("USER", options=u_options,
+                                                          index=u_options.index(current_user))
+                                    # read me again mr.isaac
 
-                                u_crew = st.number_input("CREW", value=int(asset_data.get("CREW", 0)))
-                                u_moved_from = st.text_input("MOVED_FROM", value=str(asset_data.get("MOVED_FROM", "")))
-                                u_reason = st.text_area("REASON", value=str(asset_data.get("REASON", "")))
+                                    u_crew = st.number_input("CREW", value=int(asset_data.get("CREW", 0)))
+                                    u_moved_from = st.text_input("MOVED_FROM",
+                                                                 value=str(asset_data.get("MOVED_FROM", "")))
+                                    u_reason = st.text_area("REASON", value=str(asset_data.get("REASON", "")))
 
-                            update_submit = st.form_submit_button("Update Asset")
-                            if update_submit:
-                                updated_data = {
-                                    "SERIAL_NO": u_serial_no,
-                                    "CONTRACT_NO": u_contract,
-                                    "MODEL": u_model,
-                                    "TYPE": u_type,
-                                    "KVA": u_kva,
-                                    "user_id": u_user_id,
-                                    "MANUF_YR": str(u_manuf_yr),
-                                    "SERVICE_YR_KOC": str(u_service_yr_koc),
-                                    "RUN_Hrs": u_run_hrs,
-                                    "AREA": u_area,
-                                    "APPR_KVA": u_appr_kva,
-                                    "LOCATION": u_location,
-                                    "FIELD": u_field,
-                                    "USER": u_user,
-                                    "CREW": u_crew,
-                                    "MOVED_FROM": u_moved_from,
-                                    "REASON": u_reason
-                                }
-                                try:
-                                    response = supabase.table(TABLE_NAME).update(updated_data).eq("G-CODE",
-                                                                                                  selected_gcode).execute()
-                                    st.success(f"✅ Asset {selected_gcode} updated successfully!")
-                                    st.rerun()
-                                except Exception as e:
-                                    st.error("❌ Error updating asset")
-                                    with st.expander("View Error Details"):
-                                        st.write(f"Type: {type(e).__name__}")
-                                        st.write(f"Message: {str(e)}")
-                                        if hasattr(e, 'details'):
-                                            st.write(f"Details: {e.details}")
+                            # 4. The Critical Submit Button
+                            submit_button = st.form_submit_button("SUBMIT CHANGES")
+                        if submit_button:
+
+                            # Update logic goes here
+                            updated_data = {
+                                "SERIAL_NO": u_serial_no,
+                                "CONTRACT_NO": u_contract,
+                                "MODEL": u_model,
+                                "TYPE": u_type,
+                                "KVA": u_kva,
+                                "user_id": u_user_id,
+                                "MANUF_YR": str(u_manuf_yr),
+                                "SERVICE_YR_KOC": str(u_service_yr_koc),
+                                "RUN_Hrs": u_run_hrs,
+                                "AREA": u_area,
+                                "APPR_KVA": u_appr_kva,
+                                "LOCATION": u_location,
+                                "FIELD": u_field,
+                                "USER": u_user,
+                                "CREW": u_crew,
+                                "MOVED_FROM": u_moved_from,
+                                "REASON": u_reason
+                            }
+                            try:
+                                st.success("Updating...")
+                                supabase.table(TABLE_NAME).update(updated_data).eq("G-CODE", select_gcode).execute()
+                                st.cache_data.clear()
+                                st.rerun()
+                            except Exception as e:
+                                st.error("❌ Error updating asset")
+                                with st.expander("View Error Details"):
+                                    st.write(f"Type: {type(e).__name__}")
+                                    st.write(f"Message: {str(e)}")
+                                    if hasattr(e, 'details'):
+                                        st.write(f"Details: {e.details}")
+
                     else:
-                        st.warning("No assets available to update.")
+                        st.warning("No assets found.")
                 except Exception as e:
                     st.error(f"Error: {e}")
-            else:
-                st.info("Managers have Read-Only access to this tab.")
-
-    # --- PAGE LOGIC: MAINTENANCE ---
-    elif selected == "MAINTENANCE":
-        if user_role in ["Developer","Mechanical","admin","manager"]:
-
-            st.info("PREVENTIVE MAINTENANCE SCHEDULE")
-            # Reuse your existing maintenance logic here
-            st.write("Service tracking data...")
-                    # LOGIC FOR PREDICTIVE SERVICE
-            SUPABASE_URL = "https://zakswtxavrnvghpypmuz.supabase.co"
-            SUPABASE_KEY = "sb_publishable_a0FSAnDcjWOpzLkYNDCwfg_moO6MV9A"
-            TABLE_NAME = "GENSET ASSET"
-            supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-            fleet_data = supabase.table('GENSET ASSET').select(
-                "G-CODE, SERIAL_NO, MODEL, KVA, LOCATION, PLANNED_PM"
-            ).execute()
-            df = pd.DataFrame(fleet_data.data)
-
-            if not df.empty:
-                today = datetime.now().date()
-                df['PLANNED_PM'] = pd.to_datetime(df['PLANNED_PM']).dt.date
-
-                # --- DYNAMIC CALCULATIONS ---
-                # Use pd.to_datetime to handle strings and NaT (nulls) safely
-                df['PLANNED_PM'] = pd.to_datetime(df['PLANNED_PM']).dt.date
-
-                # Calculate with safety checks
-                df['DAYS_SINCE_LAST'] = df['PLANNED_PM'].apply(
-                    lambda x: (today - x).days if pd.notnull(x) else 0
-                )
-
-                df['NEXT_PM'] = df['PLANNED_PM'].apply(
-                    lambda x: x + timedelta(days=15) if pd.notnull(x) else today + timedelta(days=15)
-                )
-
-                df['DAYS_LEFT'] = df['NEXT_PM'].apply(
-                    lambda x: (x - today).days if pd.notnull(x) else 0
-                )
-                # Service Type Logic:
-                # We assume a B-Service occurs every 90 days (the 6th service in the 15-day cycle)
-                def get_service_type(days_past):
-                    # If the cumulative days since a major overhaul/start is a multiple of 90
-                    # For this logic, we check if the current gap is hitting the 90-day mark
-                    return "B-SERVICE (90d)" if days_past >= 75 else "A-SERVICE (15d)"
 
 
-                df['UPCOMING_TYPE'] = df['DAYS_SINCE_LAST'].apply(get_service_type)
-                df['STATUS'] = df['DAYS_LEFT'].apply(lambda x: '🚨 OVERDUE' if x < 0 else '✅ OK')
-
-                # --- NEW GAUGE INTEGRATION ---
-                st.subheader("Unit Specific Maintenance & History")
-                target_unit = st.selectbox("Select Generator G-CODE:", df["G-CODE"].tolist())
-
-                # Get data for the selected unit
-                unit_row = df[df["G-CODE"] == target_unit].iloc[0]
-
-                # Determine the interval (15 or 90) based on your UPCOMING_TYPE logic
-                interval = 90 if "90d" in unit_row['UPCOMING_TYPE'] else 15
-                days_elapsed = unit_row['DAYS_SINCE_LAST']
-
-                # Create the Gauge
-                import plotly.graph_objects as go
-
-                fig_gauge = go.Figure(go.Indicator(
-                    mode="gauge+number+delta",
-                    value=days_elapsed,
-                    domain={'x': [0, 1], 'y': [0, 1]},
-                    title={'text': f"Service Progress: {unit_row['UPCOMING_TYPE']}", 'font': {'size': 20}},
-                    delta={'reference': interval, 'increasing': {'color': "red"}},
-                    gauge={
-                        'axis': {'range': [0, interval], 'tickwidth': 1},
-                        'bar': {'color': "#31333F"},
-                        'steps': [
-                            {'range': [0, interval * 0.7], 'color': "#00CC96"},  # Green
-                            {'range': [interval * 0.7, interval * 0.9], 'color': "#FFA15A"},  # Orange
-                            {'range': [interval * 0.9, interval], 'color': "#EF553B"}  # Red
-                        ],
-                        'threshold': {
-                            'line': {'color': "black", 'width': 4},
-                            'thickness': 0.75,
-                            'value': interval}
-                    }
-                ))
-
-                fig_gauge.update_layout(height=350, margin=dict(l=20, r=20, t=50, b=20))
-
-                # Display Gauge and Details in columns
-                col_g1, col_g2 = st.columns([2, 1])
-                with col_g1:
-                    st.plotly_chart(fig_gauge, use_container_width=True)
-                with col_g2:
-                    st.write("### Quick Stats")
-                    st.metric("Days Remaining", unit_row['DAYS_LEFT'], delta_color="inverse")
-                    st.write(f"*Model:* {unit_row['MODEL']}")
-                    st.write(f"*Location:* {unit_row['LOCATION']}")
-                    st.write(f"*Target Date:* {unit_row['NEXT_PM']}")
-
-
-
-
-
-                # 2. Display Table
-                with st.expander("General service"):
-                    st.dataframe(
-                        df[["G-CODE", "MODEL", "LOCATION", "PLANNED_PM", "NEXT_PM", "DAYS_LEFT", "UPCOMING_TYPE",
-                            "STATUS"]],
-                        hide_index=True, use_container_width=True)
-            "---"
-            # 2. SELECTION & RESET LOGIC
-
-            if user_role=="Developer":
-                st.warning("Unit Specific Maintenance & History")
-
-                target_unit = st.selectbox("Select Generator G-CODE:", df["G-CODE"].tolist(),key="maintenance_generator_sector")
-
-                # Find the date of the last "B-SERVICE" to calculate the 90-day cycle reset
-                last_b_query = (
-                    supabase.table("SERVICE_LOGS")
-                    .select("service_date")
-                    .eq("g_code", target_unit)
-                    .eq("service_type", "B")
-                    .order("service_date", desc=True)
-                    .limit(1)
-                    .execute()
-                )
-
-                if last_b_query.data:
-                    last_b_date = datetime.strptime(last_b_query.data[0]['service_date'], "%Y-%m-%d").date()
-                    days_since_b_reset = (today - last_b_date).days
-                else:
-                    days_since_b_reset = 90  # Force B-Service if no history exists
-
-                # Determine next service type based on 90-day reset rule
-                if days_since_b_reset >= 90:
-                    next_service_type = "B-SERVICE"
-                    st.warning(f"🚨 Unit {target_unit} is due for a B-SERVICE (90-Day Cycle Reset)")
-                else:
-                    next_service_type = "A-SERVICE"
-                    st.info(f"✅ Next Service: {next_service_type}. ({90 - days_since_b_reset} days until B-reset)")
-
-
-
-
-                # 3. DISPLAY LAST 5 SERVICES
-                st.write("### Last 5 Services History")
-                history_res = (
-                    supabase.table("SERVICE_LOGS")
-                    .select("service_date, service_type, run_hours, notes")
-                    .eq("g_code", target_unit)
-                    .order("service_date", desc=True)
-                    .limit(5)
-                    .execute()
-                )
-
-                if history_res.data:
-                    st.table(pd.DataFrame(history_res.data))
-                else:
-                    st.caption("No history found in SERVICE_LOGS for this unit.")
-
-
-
-                # 4. ACTION: RECORD COMPLETED SERVICE
-                with st.expander(f"Record New Service for {target_unit}"):
-                    with st.form("service_update_form"):
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            comp_date = st.date_input("Completion Date", value=today)
-                            # Let user confirm type, but default it based on our reset logic
-                            actual_type = st.selectbox("Service Type Performed", options=["A", "B"],
-                                                       index=1 if next_service_type == "B-SERVICE" else 0)
-                        with col2:
-                            hrs = st.number_input("Run Hours at Service", min_value=0)
-                            notes = st.text_area("Maintenance Notes")
-
-                        if st.form_submit_button("SUBMIT SERVICE RECORD"):
-                            # Update Main Asset Table
-                            supabase.table('GENSET ASSET').update({
-                                "PLANNED_PM": str(comp_date),
-                                "RUN_Hrs": hrs
-                            }).eq("G-CODE", target_unit).execute()
-
-                            # Insert into Logs Table (Important for the reset logic!)
-                            log_data = {
-                                "g_code": target_unit,
-                                "service_date": str(comp_date),
-                                "service_type": actual_type,
-                                "run_hours": hrs,
-                                "notes": notes
-                            }
-                            supabase.table("SERVICE_LOGS").insert(log_data).execute()
-
-                            st.success("Service Logged. Cycle Reset Applied!")
-                            st.rerun()
-                #GRAPHIC VIEW
-                fig = px.scatter(
-                    df, x="G-CODE", y="DAYS_LEFT", color="STATUS",
-                    color_discrete_map={'🚨 OVERDUE': '#FF4B4B', '✅ OK': '#00CC96'},
-                    size=df['DAYS_LEFT'].abs().add(15),
-                    hover_data=["MODEL", "UPCOMING_TYPE"],
-                    title="Service Countdown (Days Remaining)"
-                )
-                fig.add_hline(y=0, line_dash="dash", line_color="orange", annotation_text="DUE DATE")
-                st.plotly_chart(fig, use_container_width=True)
-
-            else:
-                st.warning("Restricted access to maintain correct data entry.")
-                # 3. Scatter Graph with Overdue Warnings
-
-
-
-
-
-
-
-
-    #logic screening for workshop
+    #------WORKSHOP-UNIT----
     elif selected == "WORKSHOP":
-        st.info("GENERATORS_UNDER_WORKSHOP")
-        SUPABASE_URL = "https://zakswtxavrnvghpypmuz.supabase.co"
-        SUPABASE_KEY = "sb_publishable_a0FSAnDcjWOpzLkYNDCwfg_moO6MV9A"
-        TABLE_NAME = "GENSET ASSET"
-        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+        st.info("🛠️******WELCOME TO WORKSHOP OVERVIEW FOR ASSETS CURRENTS UNDER WORKSHOP REPAIR******")
 
-        resource = supabase.table("GENSET ASSET").select("G-CODE,SERIAL_NO,MODEL,TYPE,KVA,RUN_Hrs,"
-                                                         "AREA,LOCATION,MOVED_FROM,REASON").eq('LOCATION',
-                                                                                               'WORKSHOP').execute()
-        df = resource.data
-        st.dataframe(df, hide_index=True, height=500)
-        D = len(df)
-        st.metric('TOTAL NUMBER', D, "+")
+        df = get_full_dataframe()
+        # Filter for units currently in the workshop
+        df_ws = df[df['LOCATION'] == "WORKSHOP"].copy()
 
-    # --- PAGE LOGIC: PART_NUMBERS ---
-    elif selected == "PART_NUMBERS":
-        st.info("PARTS DATABASE")
-        # Reuse your existing part numbers logic here
-        "----"
-        option = ["CATERPILLAR", "VOLVO", "CUMMINS", "BAUDOUIN"]
-        selection = st.segmented_control("SELECT_GENSET-TYPE"
-                                         , options=option, key="nav_index"
-                                         )
-        if selection == "CATERPILLAR":
-            make_cat = st.selectbox("SELECT_MAKE", options=cat_make)
-            if make_cat == cat_make[1]:
-                kva_selected = st.selectbox("SELECT_KVA(320)", options=cat_kva)
-                if kva_selected == cat_kva[7]:
-                    df = {"PARTS": ['WATER PUMP', 'GASKET', 'FUEL TRANSFER PUMP', 'BREATHER', 'BREATHER HOUSING', 'FAN',
-                                    'SOLENOID', 'GOVERNOR'
-                        , 'PUMP KIT', 'RADIATOR-CAP', 'BALL BEARING', 'SEAL', 'THERMOSTAT', 'FITTINGS', 'FITTINGS',
-                                    'OIL FILLING CAP', 'BALL BEARING'],
-                          'DESCRIPTION': ['WATER PUMP WITH O-RING', 'GASKET(Thermostat', 'PUMP GP FUEL TRANSFER',
-                                          'BREATHER-AS', 'CLAMP-BREATHER HOUSING'
-                              , 'FAN', 'SOLENOID-SHUT OFF', 'WOODWARD GOVERNOR', 'KIT-WATER PUMP SPCALSO',
-                                          'RADIATOR-CAP', 'BALL BEARING -L'
-                              , 'SEAL- LIP TYPE', 'THERMOSTAT', 'PRESSURE RELIFE(1/8-27 PTF)', 'FITTING-GREASE',
-                                          'CAP-OIL FILLING', 'BALL BEARING-R'],
-                          'PART NO': ['352-0203', '7C-0307', '1W-1700', '9Y-2988', '2N-8109', '142-1931', '1255774',
-                                      '1315455', '433-9952'
-                              , '153-1403', '3L-1425', '5S-2106', '2477133', '4B-4550', '2D-4867', '6N-2985',
-                                      '8H-9789']}
-                    st.dataframe(df, height=700)
-            elif make_cat == cat_make[7]:
-                kva_selected = st.selectbox("SELECT_KVA(500)", options=cat_kva)
-                if kva_selected == cat_kva[9]:
-                    df = {'PARTS': ['SEAL V-RING', 'SEAL VALVE COVER', 'SEAL TURBO OIL LINE', 'SEAL TURBO LINE',
-                                    'THERMOSTAT HOUSING SEAL', 'SEAL O-RING'
-                        , 'SEAL O-RING', 'SEAL LIP TYPE', 'WATER PUMP', 'O-RING(W/P)', 'PRIMING PUMP', 'PUMP GP',
-                                    'FUEL HOSE', 'FUEL HOSE'
-                        , 'BALL BEARING', 'BALL BEARING', 'BALL BEARING', 'SPIDER', 'CHECK VALVE', 'FUEL BYPASS VALVE',
-                                    'FUEL FILTER HOUSING'
-                        , 'GASKET', 'RADIATOR CAP', 'RADIATOR CAP', 'THERMOSTAT O-RING', 'RADIATOR HOSE-B',
-                                    'RADIATOR HOSE-T', 'EXPANSION TANK'
-                        , 'GASKET-TURBO', 'RELAY', 'BELT TIGHTENER', 'PWM-CONTROL', 'ENGINE ECM', 'EYE ROD ADJUSTER',
-                                    'EXHAUST BELLOW CLAMP'
-                        , 'ALTERNATOR PULLEY', 'TURBO HIGH TEMP BOLT', 'TURBO HIGH TEMP NUT', 'AIR HOSE', 'STRAP'],
-                          'DESCRIPTION': ['SEAL V-RING', 'SEAL VALVE COVER(TAPPET COVER)', 'SEAL TURBO OIL LINE',
-                                          'SEAL TURBO LINE', 'THERMOSTAT HOUSING SEAl',
-                                          'FUEL PUMP O-RING', 'SEAL O-RING', 'SEAL LIP TYPE',
-                                          'WATER PUMP WITHOUT GASKET', 'O-RING(WATER PUMP)', 'PRIMING PUMP',
-                                          'FUEL TRANSFER PUMP GP', 'FUEL SEPERATOR TO FUEL PUMP', 'F.PUMP TO F.FILTER',
-                                          'BALL BEARING-H', 'BALL BEARING-L',
-                                          'FOR BELT TIGHTENER*2', 'FAN UNIT SPIDER', 'CHECK VALVE', 'FUEL BYPASS VALVE',
-                                          'FUEL FILTER HOUSING',
-                                          'TAPPET PRESSURE PLATE GASKET', 'RADIATOR CAP', 'RADIATOR CAP C51',
-                                          'THERMOSTAT O-RING',
-                                          'RADIATOR RUBBER HOSE-BOTTOM', 'RADIATOR HOSE TOP', 'RADIATOR TANK',
-                                          'TURBO CHARGER GASKET', 'RELAY'
-                              , 'BELT TIGHTENER (FAN PULLEY)', 'CONTROL GROUP', 'ENGINE ECM', 'ROD-ALTERNATOR',
-                                          'EXHAUST BELLOW CLAMP', 'ALTERNATOR PULLEY',
-                                          'TURBO HIGH TEMP BOLT', 'TURBO HIGH TEMP NUT', 'AIR HOSE', 'STRAP'],
-                          'PART NO': ['8C-5238', '2429537', '198-6068', '160-7037', '3S-9643', '107-5769', '9F-4446',
-                                      '5S-2106', '10R-8660', '4687363',
-                                      '137-5541', '384-8612', '7N-4045', '1-meter hose', '8H-9789', '3L-1425',
-                                      '297-4677', '217-6022', '2812725'
-                              , '139-6873', '191-5055', '272-0390', '266-8550', '391-6399', '167-4407', '264-7112',
-                                      '264-7111'
-                              , '4616246', '1S-4295', '3E-6477', '309-8037', '5125720', '20R-8181', '6L-5874',
-                                      '220-5619', '1W-1456'
-                              , '2N-2765', '2N-2766', '286-0607', '248-7330']}
-                    st.dataframe(df, hide_index=True, height=700)
-            elif make_cat == cat_make[2]:
-                kva_selected = st.selectbox("SELECT_KVA(810)", options=cat_kva)
-                if kva_selected == cat_kva[15]:
-                    df = {'PARTS': ['FUEL PUMP', 'FUEL LINE-1 RR', 'FUEL LINE-2 RR', 'FUEL LINE-3 RR', 'FUEL LINE-4 RR',
-                                    'FUEL LINE-5 RR', 'FUEL LINE-6 RR', 'FUEL LINE-1 LR', 'FUEL LINE-2 LR',
-                                    'FUEL LINE-3 LR',
-                                    'FUEL LINE-4 LR', 'FUEL LINE-5 LR', 'FUEL LINE-6 LR', 'EXHAUST BELLOW', 'SEAL',
-                                    'BEARING'],
-                          'DESCRIPTION': ['FUEL PUMP', 'RIGHT FROM RADIATOR', 'RIGHT FROM RADIATOR',
-                                          'RIGHT FROM RADIATOR',
-                                          'RIGHT FROM RADIATOR', 'RIGHT FROM RADIATOR', 'RIGHT FROM RADIATOR',
-                                          'LEFT FROM RADIATOR',
-                                          'LEFT FROM RADIATOR', 'LEFT FROM RADIATOR', 'LEFT FROM RADIATOR',
-                                          'LEFT FROM RADIATOR',
-                                          'LEFT FROM RADIATOR', 'EXHAUST BELLOW (G-510,513)', 'SEAL O-RING',
-                                          'BALL-BEARING']
-                        , 'PART NO': ['105-7573', '4P-9641', '4P-9643', '4P-9645', '4P-9647', '4P-9649', '4P-9651',
-                                      '111-4122', '111-4124', '111-4126', '111-4128', '111-4130', '111-4132',
-                                      '211-1009',
-                                      '9F-4446', '8H-9789']}
-                    st.dataframe(df, hide_index=True, height=700)
-            elif make_cat == cat_make[6]:
-                kva_selected = st.selectbox("SELECT_KVA(400)", options=cat_kva)
-                if kva_selected == cat_kva[8]:
-                    df = {
-                        'PARTS': ['THERMOSTAT', 'THERMOSTAT O-RING TOP', 'THERMOSTAT O-RING BOTTOM', 'THERMOSTAT VENT',
-                                  'THERMOSTAT O-RING SIDE'
-                            , 'BALL BEARING-L', 'SEAL', 'BALL BEARING-H', 'SEAL', 'FITTINGS', 'PULLY-ALT',
-                                  'FUEL TRNS PUMP',
-                                  'WATER PUMP'
-                            , 'OIL FILLING CAP', 'EXHAUST BELLOW', 'BALL BEARING-TENSOR', 'BELT TIGHTENER'],
-                        'DESCRIPTION': ['THERMOSTAT', 'THERMOSTAT TOP', 'THERMOSTAT BOTTOM', 'THERMOSTAT VENT',
-                                        'THERMOSTAT O-RING SIDE', 'BALL BEARING-L'
-                            , 'SEAL LIP TYPE', 'BALL BEARING-H', 'SEAL O-RING', 'FITTING-GREASE', 'ALTERNATOR-PULLY',
-                                        'FUEL TRANSFER PUMP GP', 'WATER PUMP GP'
-                            , 'CAP-AS OIL FILLING', 'EXHAUST BELLOW', 'BALL BEARING FOR BELT TIGHTENER',
-                                        'BELT TIGHTENER GP (FAN PULLEY'],
-                        'PART NO': ['247-7133', '3S-9643', '227-5075', '239-8135', '7L-6580', '3L-1425', '5S-2106',
-                                    '8H-9789', '9F-4446'
-                            , '2D-4867', '296-8176', '384-8611', '352-0205', '068-4497', '227-3019', '297-4677',
-                                    '309-8037']}
-                    st.dataframe(df, hide_index=True, height=700)
-            elif make_cat == cat_make[8]:
-                kva_selected = st.selectbox("SELECT_KVA(600)", options=cat_kva)
-                if kva_selected == cat_kva[11]:
-                    dt = {'PARTS': ['OIL FILING CAP', 'SEAL', 'FAN SPIDER', 'BALL BEARING', 'WATER PUMP',
-                                    'WATER PUMP KIT', 'TAPPET COVER SEAL'
-                        , 'BELT TIGHTENER GP', 'BELT TENSIONER BEARING', 'EXHAUST BELLOW'],
-                          'DESCRIPTION': ['OIL FILING CAP', 'SEAL V-RING', 'SPIDER -ASSY FAN', 'BALL BEARING',
-                                          'WATER PUMP WITHOUT GASKET',
-                                          'O-RING KIT', 'SEAL-VALVE (Tappet cover)', 'BELT TIGHTENER GP(FAN PULLEY)',
-                                          'BALL BEARING FOR BELT TIGHTENER GP',
-                                          'EXHAUST BELLOW'],
-                          'PART NO': ['5L-2952', '8C-5238', '217-6022', '333-2408', '10R-8660', '4687363', '2429537',
-                                      '309-8037', '297-4677',
-                                      '227-3019'], }
-                    st.dataframe(dt, hide_index=True, height=700)
-            elif make_cat == cat_make[9]:
-                kva_selected = st.selectbox("SELECT_KVA(60)", options=cat_kva)
-                if kva_selected == cat_kva[1]:
-                    df = {'PARTS': ['WATER PUMP', 'GASKET', 'INJECTOR HOSE', 'COOLANT PIPE', 'OIL COOLER TUBE',
-                                    'OIL COOLER TUBE'
-                        , 'WOODWARD GOVERNOR', 'OIL FILING CAP', 'FUEL HOSE', 'RADIATOR HOSE-INLET',
-                                    'RADIATOR HOSE-OUTLET',
-                                    'FILTER GP FUEL', 'PUMP GP FUEL TRANSFER'],
-                          'DESCRIPTION': ['WATER PUMP GP', 'GASKET(WATER PUMP)', 'INJECTOR HOSE',
-                                          'COOLANT PIPE WITH O-RING',
-                                          'OIL COOLER TUBE(LOWER)', 'OIL COOLER TUBE(UPPER)', 'WOODWARD GOVERNOR',
-                                          'OIL FILING CAP', 'FUEL HOSE',
-                                          'RADIATOR HOSE-INLET', 'RADIATOR HOSE-OUTLET', 'FILTER GP FUEL',
-                                          'PUMP GP FUEL TRANSFER(HAND)'],
-                          'PART NO': ['355-2252', '225-8019', '232-1794', '2744707', '3482V102', '3482V101', '272-2223'
-                              , '136-3608', '232-1794', '258-5355', '258-5356', '4668433', '201-0877']}
-                    st.dataframe(df, hide_index=True, height=700)
-            elif make_cat == cat_make[3]:
-                kva = st.selectbox("SELECT_KVA(1100)", options=cat_kva)
-                if kva == cat_kva[-2]:
-                    df = {'PARTS': ['WATER PUMP', 'WATER PUMP KIT'],
-                          'DESCRIPTION': ['WATER PUMP', 'WATER PUMP KIT'],
-                          'PART NO': ['352-0202', '434-7542']}
-                    st.dataframe(df, hide_index=True, height=700)
-            elif make_cat == cat_make[4]:
-                kva = st.selectbox("SELECT_KVA(250)", options=cat_kva)
-                if kva == cat_kva[6]:
-                    df = {"PARTS": [],
-                          "DESCRIPTION": [],
-                          "PART NO": []}
-                    st.dataframe(df, hide_index=True, height=700)
+        if not df_ws.empty:
+            # Convert MOVEMENT_DATE to datetime and calculate age
+            df_ws['MOVEMENT_DATE'] = pd.to_datetime(df_ws['MOVEMENT_DATE'])
+            df_ws['Days_in_WS'] = (datetime.now() - df_ws['MOVEMENT_DATE']).dt.days
+
+            # Sort by oldest repair first
+            df_ws = df_ws.sort_values(by='Days_in_WS', ascending=False)
+
+            # Metrics
+            m1, m2, m3 = st.columns(3)
+            m1.metric("Units in Workshop", len(df_ws))
+            m2.metric("Oldest Repair (Days)", df_ws['Days_in_WS'].max())
+            m3.metric("Avg. Repair Time", round(df_ws['Days_in_WS'].mean(), 1))
 
 
-        elif selection == "VOLVO":
-            st.selectbox("SELECT_MAKE", options=vol_make)
-        elif selection == "CUMMINS":
-            st.selectbox("SELECT_MAKE", options=cum_make)
-        elif selection == "BAUDOUIN":
-            st.selectbox("SELECT_MAKE", options=bau_make)
+            # Color-coded highlight for "Stuck" assets (e.g., more than 14 days)
+            def color_age(val):
+                color = 'red' if val > 14 else 'orange' if val > 7 else 'white'
+                return f'color: {color}'
 
-    # --- PAGE LOGIC: GENERAL_ASSETS ---
-    elif selected == "GENERAL_ASSETS":
-        # Only Developer and Manager see this menu option
-        st.info("General Assets Tracking")
-        if user_role == "Developer":
-            SUPABASE_URL = "https://zakswtxavrnvghpypmuz.supabase.co"
-            SUPABASE_KEY = "sb_publishable_a0FSAnDcjWOpzLkYNDCwfg_moO6MV9A"
-            TABLE_NAME = "ASSETS"
-            supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-            # to read data from table
-            response = supabase.table('ASSETS').select("*").execute()
-            df = response.data
 
-            st.dataframe(df, use_container_width=True)
+            st.write("### 📋 Repair Queue (Oldest First)")
+            st.dataframe(
+                df_ws[['G-CODE', 'MODEL','KVA', 'REASON', 'Days_in_WS', 'MOVEMENT_DATE','STATUS']]
+                .style.map(color_age, subset=['Days_in_WS']),
+                use_container_width=True
+            )
+            with st.expander("📝 Update Unit Status"):
+                with st.form("status_update"):
+                    selected_unit = st.selectbox("Select G-CODE", options=df_ws['G-CODE'].tolist())
+                    new_status = st.selectbox("New Status", ["In-Repair", "Waiting for Parts", "READY"])
+                    notes = st.text_input("Technical Notes")
+                    update_btn = st.form_submit_button("Update Status")
 
-            with st.expander("Add New Item"):
-                with st.form(key="my_form", clear_on_submit=True):
-                    st.info('ASSET UPLOAD')
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        nn_1 = st.text_input("Enter Asset Name:")
-                        description = st.text_input("Enter Description:")
-                        rating = st.text_input("Enter Rating:")
-                    with col2:
-                        location = st.selectbox("Enter Location:",
-                                                options=['PDI', 'BURGUN', 'WORKSHOP', 'NK', 'EK', 'SK'])
-                        quantity = st.number_input("Enter Quantity:", min_value=0, step=1)
-                        status = st.selectbox("Select Status:", options=['Active', 'Inactive'])
-                    submit = st.form_submit_button(label="Submit")
-                    if submit:
-                        if nn_1 != '':
-                            new_data = {
-                                'ASSET_NAME': nn_1,
-                                'DESCRIPTION': description,
-                                'RATING': rating,
-                                'LOCATION': location,
-                                'QUANTITY': quantity,
-                                'STATUS': status
-                            }
-                            response = supabase.table('ASSETS').insert(new_data).execute()
-                            st.success(f"Asset {nn_1} has been added")
-                        else:
-                            st.error("Enter Asset Name")
-                with st.expander("Edit uploaded Asset"):
+                    if update_btn:
+                        # Update status in Supabase
+                        supabase.table("GENSET ASSET").update({"STATUS": f"{new_status}"}).eq("G-CODE",
+                                                                                                   selected_unit).execute()
+                        st.cache_data.clear()
+                        st.success(f"Unit {selected_unit} is now marked as {new_status}")
+                        st.rerun()
+            st.caption("Workshop Reports")
+            col1, col2, col3 = st.columns(3)
 
-                    with st.form(key="my_form_2", clear_on_submit=True):
-
-                        st.info('ASSET UPLOAD')
-                        col1, col2 = st.columns(2)
-                        with col1:
-
-                            nn_1 = st.text_input("Enter Asset Name:")
-                            description = st.text_input("Enter Description:")
-                            rating = st.text_input("Enter Rating:")
-                        with col2:
-                            location = st.selectbox("Enter Location:",
-                                                    options=['PDI', 'BURGUN', 'WORKSHOP', 'NK', 'EK', 'SK'])
-                            quantity = st.number_input("Enter Quantity:", min_value=0, step=1)
-                            status = st.selectbox("Select Status:", options=['Active', 'Inactive'])
-                            submit = st.form_submit_button(label="Submit")
-                            if submit:
-                                if nn_1 != '':
-                                    new_data = {
-                                        'ASSET_NAME': nn_1,
-                                        'DESCRIPTION': description,
-                                        'RATING': rating,
-                                        'LOCATION': location,
-                                        'QUANTITY': quantity,
-                                        'STATUS': status
-                                    }
-                                    response = supabase.table('ASSETS').update(new_data).eq('ASSET_NAME',
-                                                                                            ['Lst']).execute()
-                                    st.success(f"Asset {nn_1} has been UPDATED")
+            with (col1):
+                with st.expander('READY IN WORKSHOP'):
+                    df=supabase.table("GENSET ASSET").select("G-CODE","MODEL","KVA","REASON","STATUS"
+                                                             ).eq("STATUS",'READY').execute()
+                    st.dataframe(df.data)
+            with (col2):
+                with st.expander('IN REPAIR'):
+                    df=supabase.table("GENSET ASSET").select("G-CODE","MODEL","KVA","REASON","STATUS"
+                                                             ).eq('STATUS','In-Repair').execute()
+                    st.dataframe(df.data)
+            with (col3):
+                with st.expander('WAITING'):
+                    df = supabase.table("GENSET ASSET").select("G-CODE", "MODEL", "KVA", "REASON", "STATUS"
+                                                               ).eq('STATUS', 'Waiting for parts').execute()
+                    st.dataframe(df.data)
         else:
-            st.warning("Managers can view General Assets but not edit them.")
+            st.success("No assets currently in the workshop.")
+
+    elif selected == "MAINTENANCE":
+
+        # ----enter code with access permission-----
+
+        st.info("🕒 **CALENDAR-BASED MAINTENANCE SCHEDULING**")
+
+        df = get_full_dataframe()
+        #added maintenance and scheduling
+        if user_role in ["Developer",'manager','supervisor','engineer']:
+
+            # Fetch current data for the selection menu
+            df_assets = get_full_dataframe()
+            st.divider()
+            # 1. Select the asset to inspect
+            asset_list = df_assets['G-CODE'].tolist()
+            selected_asset = st.selectbox("Search Asset for Service History", options=asset_list)
+
+            if selected_asset:
+                # Get specific asset data
+                asset_data = df_assets[df_assets['G-CODE'] == selected_asset].iloc[0]
+
+                # Calculate Remaining Days based on PLANNED_PM column
+                last_pm_date = pd.to_datetime(asset_data['PLANNED_PM']).date()
+                today = datetime.now().date()
+                days_since_pm = (today - last_pm_date).days
+
+                # Calculate remainders for your 15-day and 90-day cycles
+                rem_a = 15 - days_since_pm
+                rem_b = 90 - days_since_pm
+
+                # 2. Display Countdown Gauges
+                c1, c2, c3 = st.columns(3)
+                c1.metric("Last Service Date", str(last_pm_date))
+
+                # Use colors to show urgency
+                a_color = "normal" if rem_a > 0 else "inverse"
+                c2.metric("A SERVICE (15d)", f"{rem_a} Days", delta=rem_a, delta_color=a_color)
+
+                b_color = "normal" if rem_b > 0 else "inverse"
+                c3.metric("B SERVICE (90d)", f"{rem_b} Days", delta=rem_b, delta_color=b_color)
+
+                # 3. Fetch History for THIS asset only
+                with st.expander("UNIT REPORT:"):
+                    st.write(f"##### 📜 Service History and Update for {selected_asset}")
+                    history_resp = supabase.table("SERVICE_LOGS").select("*").eq("g_code", selected_asset).order(
+                        "service_date", desc=True).execute()
+                    df_history = pd.DataFrame(history_resp.data)
+
+                    if not df_history.empty:
+                        # Highlight key hands-on troubleshooting and repair notes
+                        # Prepare data for the chart: Sort by date ascending
+                        chart_df = df_history.copy()
+                        chart_df['service_date'] = pd.to_datetime(chart_df['service_date'])
+                        chart_df = chart_df.sort_values('service_date')
+
+                        # Create the trend line
+                        fig_trend = px.line(
+                            chart_df,
+                            x='service_date',
+                            y='run_hours',
+                            markers=True,
+                            title=f"Usage Trend for {selected_asset}",
+                            labels={'service_date': 'Date', 'run_hours': 'Accumulated Hours'}
+                        )
+
+
+                        # Style the line to look professional
+                        fig_trend.update_traces(line_color='#0078D4', line_width=2)
+                        st.plotly_chart(fig_trend, use_container_width=True)
+
+                        # Calculate Average Daily Utilization
+                        if len(chart_df) > 1:
+                            total_hrs = chart_df['run_hours'].iloc[-1] - chart_df['run_hours'].iloc[0]
+                            total_days = (chart_df['service_date'].iloc[-1] - chart_df['service_date'].iloc[0]).days
+
+                            if total_days > 0:
+                                avg_daily = round(total_hrs / total_days, 1)
+                                st.info(
+                                    f"💡 *Utilization Analysis:* This asset averages *{avg_daily} hours/day. Based on this, "
+                                    f"you can expect the next 250-hour interval in approximately *{round(250 / avg_daily if avg_daily > 0 else 0)} days**.")
+                        st.table(df_history[['service_date', 'service_type', 'run_hours', 'notes']])
+
+                    else:
+                        st.info("No historical logs found for this unit.")
+            with st.expander("UPDATE SERVICE FORM :"):
+
+                with st.form("service_log_form", clear_on_submit=True):
+                    col1, col2 = st.columns(2)
+
+                    with col1:
+                        g_code = st.selectbox("Select G-CODE", options=df_assets['G-CODE'].tolist())
+                        s_date = st.date_input("Service Date", value=datetime.now().date())
+                        # Define your service types
+                        s_type = st.selectbox("Service Type", ["A SERVICE (15d)", "B SERVICE (90d)", "BREAKDOWN"])
+
+                    with col2:
+                        s_hrs = st.number_input("Current Run Hours", min_value=0, step=1)
+                        s_notes = st.text_area("Mechanical Notes (Repairs/Troubleshooting)")
+
+                    submit_log = st.form_submit_button("Submit & Update Planned PM")
+
+                    if submit_log:
+                        # 1. Prepare data for the SERVICE_LOGS table
+                        log_entry = {
+                            "g_code": g_code,
+                            "service_date": str(s_date),
+                            "service_type": s_type,
+                            "run_hours": s_hrs,
+                            "notes": s_notes
+                        }
+
+                        # 2. Update the main table's PLANNED_PM column
+                        # This resets the countdown for the 15-day or 90-day logic
+                        asset_update = {
+                            "PLANNED_PM": str(s_date),
+                            "RUN_Hrs": s_hrs
+                        }
+
+                        try:
+                            # Insert history record
+                            supabase.table("SERVICE_LOGS").insert(log_entry).execute()
+
+                            # Update the main tracking column
+                            supabase.table("GENSET ASSET").update(asset_update).eq("G-CODE", g_code).execute()
+
+                            st.cache_data.clear()
+                            st.success(f"✅ Service for {g_code} recorded. 'PLANNED_PM' has been updated.")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Database Error: {e}")
+
+            # --- SERVICE HISTORY VISUALIZATION ---
+            st.divider()
+            st.caption("📊 Maintenance History & Reporting")
+
+            try:
+                # Fetch log history for the graph
+                log_resp = supabase.table("SERVICE_LOGS").select("*").execute()
+                df_logs = pd.DataFrame(log_resp.data)
+
+                if not df_logs.empty:
+                    df_logs['service_date'] = pd.to_datetime(df_logs['service_date'])
+
+                    # Create a Timeline of all services
+                    fig = px.scatter(
+                        df_logs,
+                        x="service_date",
+                        y="g_code",
+                        color="service_type",
+                        hover_data=["run_hours", "notes"],
+                        title="Historical Service Timeline",
+                        labels={"service_date": "Date", "g_code": "Asset ID"}
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+
+                    # 3. Download Report Button
+                    csv = df_logs.to_csv(index=False).encode('utf-8')
+                    st.download_button(
+                        label="📥 Download Service History (CSV)",
+                        data=csv,
+                        file_name=f'service_history_{datetime.now().strftime("%Y%m%d")}.csv',
+                        mime='text/csv',
+                    )
+
+
+                    def get_service_status(g_code):
+                        # 1. Get the date of the last B Service
+                        last_b = supabase.table("SERVICE_LOGS").select("service_date").eq("g_code", g_code).eq(
+                            "service_type", "B SERVICE (90d)").order("service_date", desc=True).limit(1).execute()
+
+                        query = supabase.table("SERVICE_LOGS").select("id").eq("g_code", g_code).eq("service_type",
+                                                                                                    "A SERVICE (15d)")
+
+                        # 2. Only count A services done AFTER the last B service
+                        if last_b.data:
+                            query = query.gt("service_date", last_b.data[0]['service_date'])
+
+                        a_count = len(query.execute().data)
+
+                        # 3. Determine what is next
+                        next_call = "B SERVICE (90d)" if a_count >= 5 else "A SERVICE (15d)"
+                        days_limit = 90 if a_count >= 5 else 15
+
+                        return a_count, next_call, days_limit
+
+
+                    # --- Apply this to your Asset Passport ---
+                    if selected_asset:
+                        a_count, next_call, days_limit = get_service_status(selected_asset)
+
+                        # Calculate days remaining
+                        asset_data = df_assets[df_assets['G-CODE'] == selected_asset].iloc[0]
+                        last_pm = pd.to_datetime(asset_data['PLANNED_PM']).date()
+                        days_since = (datetime.now().date() - last_pm).days
+                        rem_days = days_limit - days_since
+
+                        # Display status
+                        st.write(f"### 🔄 Service Cycle Status")
+                        c1, c2, c3 = st.columns(3)
+                        c1.metric("Minor Services Done", f"{a_count} / 5")
+                        c2.metric("Next Required Task", next_call)
+
+                        # Color coding for the countdown
+                        status_color = "normal" if rem_days > 0 else "inverse"
+                        c3.metric("Days Remaining", f"{rem_days} Days", delta=rem_days, delta_color=status_color)
+
+
+                        def get_service_status(g_code):
+                            # 1. Get the date of the last B Service
+                            last_b = supabase.table("SERVICE_LOGS").select("service_date").eq("g_code", g_code).eq(
+                                "service_type", "B SERVICE (90d)").order("service_date", desc=True).limit(1).execute()
+
+                            query = supabase.table("SERVICE_LOGS").select("id").eq("g_code", g_code).eq("service_type",
+                                                                                                        "A SERVICE (15d)")
+
+                            # 2. Only count A services done AFTER the last B service
+                            if last_b.data:
+                                query = query.gt("service_date", last_b.data[0]['service_date'])
+
+                            a_count = len(query.execute().data)
+
+                            # 3. Determine what is next
+                            next_call = "B SERVICE (90d)" if a_count >= 5 else "A SERVICE (15d)"
+                            days_limit = 90 if a_count >= 5 else 15
+
+                            return a_count, next_call, days_limit
+
+
+
+                else:
+                    st.info("No service logs found yet.")
+            except Exception as e:
+                st.error(f"Error loading graph: {e}")
+
+
+
+    elif selected == "PARTS AND PRODUCTS":
+        st.info("****WELCOME TO THE PARTS AND PRODUCTS OVERVIEW****")
+        # ----enter code with access permission-----
+    elif selected == "FIXED ASSETS":
+        st.info("****WELCOME TO FIXED ASSETS OTHER ASSETS AND TOOLS****")
+        # ----enter code with access permission-----
+    elif selected == "FLEET MANAGEMENT":
+        st.info("****WELCOME TO FLEET MANAGEMENT UNIT****")
+        # ----enter code with access permission-----
+
+
+    elif selected == "SAFETY_UNIT":
+        st.info("****WELCOME TO SAFETY_UNIT****")
+        # ----enter code with access permission-----
+
+
+
