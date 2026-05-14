@@ -5,6 +5,7 @@ from streamlit_option_menu import option_menu
 import pandas as pd
 from datetime import datetime, timedelta,date
 import plotly.express as px
+import os
 
 
 max_date = datetime.today().date()
@@ -22,6 +23,7 @@ def local_css(file_name):
         with open(file_name) as f:
             st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 local_css("style.css")
+
 st.markdown(
         """
         <style>
