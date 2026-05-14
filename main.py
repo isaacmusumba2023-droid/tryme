@@ -793,17 +793,21 @@ else:
     elif selected == "PARTS AND PRODUCTS":
         st.info("****WELCOME TO THE PARTS AND PRODUCTS OVERVIEW****")
         # ----enter code with access permission-----
+        pass
     elif selected == "FIXED ASSETS":
         st.info("****WELCOME TO FIXED ASSETS OTHER ASSETS AND TOOLS****")
         # ----enter code with access permission-----
+        pass
     elif selected == "FLEET MANAGEMENT":
         st.info("****WELCOME TO FLEET MANAGEMENT UNIT****")
         # ----enter code with access permission-----
+        pass
 
 
     elif selected == "SAFETY_UNIT":
         st.info("****WELCOME TO SAFETY_UNIT****")
         # ----enter code with access permission-----
+        pass
 
 
 
