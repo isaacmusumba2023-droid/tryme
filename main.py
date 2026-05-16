@@ -75,7 +75,20 @@ rows = run_query()
 def get_full_dataframe():
      response = supabase.table("GENSET ASSET").select("*").execute()
      return pd.DataFrame(response.data)
-#new style
+#new style handling errors if network
+@st.cache_data(ttl=600)
+def get_full_dataframe():
+    try:
+        # Attempt to reach Supabase
+        response = supabase.table("GENSET ASSET").select("*").execute()
+        return pd.DataFrame(response.data)
+    except Exception as e:
+        # If internet is down or connection fails
+        st.error("📡 **Network Connection Error**")
+        st.warning("FODAMS cannot reach the database. Please check your internet connection or VPN.")
+
+        # Optionally return an empty dataframe so the rest of the app doesn't crash
+        return pd.DataFrame()
 
 
 #---USERS ASSIGNED TO DATABASE----
@@ -314,7 +327,7 @@ else:
                     with col4:
                         user = st.selectbox("USER", options=USERS_LIST)
                         crew = st.number_input("CREW", min_value=0, step=1)
-                        movement_date = st.date_input("MOVEMENT_DATE")
+                        movement_date = st.date_input("MOVEMENT_DATE",min_value=min_date,max_value=max_date)
                         moved_from = st.text_input("MOVED_FROM")
                         reason = st.text_area("REASON")
 
@@ -419,6 +432,8 @@ else:
 
                                     u_manuf_yr = st.date_input("MANUF_YR",
                                                                value=parse_date(asset_data.get("MANUF_YR", "")))
+                                    u_movement_yr = st.date_input("MOVEMENT_DATE",
+                                                               value=parse_date(asset_data.get("MOVEMENT_DATE", "")),min_value=min_date,max_value=max_date)
                                     u_service_yr_koc = st.date_input("SERVICE_YR_KOC",
                                                                      value=parse_date(
                                                                          asset_data.get("SERVICE_YR_KOC", "")))
@@ -448,6 +463,7 @@ else:
                                                                  value=str(asset_data.get("MOVED_FROM", "")))
                                     u_reason = st.text_area("REASON", value=str(asset_data.get("REASON", "")))
 
+
                             # 4. The Critical Submit Button
                             submit_button = st.form_submit_button("SUBMIT CHANGES")
                         if submit_button:
@@ -470,6 +486,7 @@ else:
                                 "USER": u_user,
                                 "CREW": u_crew,
                                 "MOVED_FROM": u_moved_from,
+                                "MOVEMENT_DATE": u_movement_yr,
                                 "REASON": u_reason
                             }
                             try:
@@ -520,7 +537,7 @@ else:
                 return f'color: {color}'
 
 
-            st.write("### 📋 Repair Queue (Oldest First)")
+            st.caption("### 📋 Repairs in WORKSHOP (Oldest First)")
             st.dataframe(
                 df_ws[['G-CODE', 'MODEL','KVA', 'REASON', 'Days_in_WS', 'MOVEMENT_DATE','STATUS']]
                 .style.map(color_age, subset=['Days_in_WS']),
@@ -651,19 +668,54 @@ else:
                     col1, col2 = st.columns(2)
 
                     with col1:
-                        g_code = st.selectbox("Select G-CODE", options=df_assets['G-CODE'].tolist())
+                        g_code = st.selectbox("Select G-CODE", options=df_assets['G-CODE'].tolist(),
+                                              key="service_g_code")
                         s_date = st.date_input("Service Date", value=datetime.now().date())
-                        # Define your service types
                         s_type = st.selectbox("Service Type", ["A SERVICE (15d)", "B SERVICE (90d)", "BREAKDOWN"])
 
                     with col2:
                         s_hrs = st.number_input("Current Run Hours", min_value=0, step=1)
                         s_notes = st.text_area("Mechanical Notes (Repairs/Troubleshooting)")
 
+                    st.markdown("---")
+                    st.write("🔧 *Excel-Style Inventory Allocation*")
+                    st.caption("Double-click cells to enter details. Click '+' below the table to add more parts.")
+
+                    # 1. Define a template schema for parts used
+                    parts_template = pd.DataFrame([{
+                        "Part Name": "",
+                        "Quantity Used": 1
+                    }])
+
+                    # 2. Render an editable Excel-like grid inside your form
+                    edited_parts_df = st.data_editor(
+                        parts_template,
+                        num_rows="dynamic",  # Allows users to click '+' to add rows natively
+                        use_container_width=True,
+                        hide_index=True,
+                        column_config={
+                            "Part Name": st.column_config.SelectboxColumn(
+                                "Part Name / Description",
+                                options=["Oil Filter", "Fuel Filter", "Air Filter", "V-Belt", "15W40 Engine Oil (Ltrs)",
+                                         "Coolant"],
+                                required=True,
+                                width="large"
+                            ),
+                            "Quantity Used": st.column_config.NumberColumn(
+                                "Quantity Used",
+                                min_value=1,
+                                max_value=500,
+                                step=1,
+                                required=True,
+                                width="small"
+                            )
+                        }
+                    )
+
                     submit_log = st.form_submit_button("Submit & Update Planned PM")
 
                     if submit_log:
-                        # 1. Prepare data for the SERVICE_LOGS table
+                        # Step A: Package data for SERVICE_LOGS
                         log_entry = {
                             "g_code": g_code,
                             "service_date": str(s_date),
@@ -671,26 +723,42 @@ else:
                             "run_hours": s_hrs,
                             "notes": s_notes
                         }
-
-                        # 2. Update the main table's PLANNED_PM column
-                        # This resets the countdown for the 15-day or 90-day logic
                         asset_update = {
                             "PLANNED_PM": str(s_date),
                             "RUN_Hrs": s_hrs
                         }
 
                         try:
-                            # Insert history record
-                            supabase.table("SERVICE_LOGS").insert(log_entry).execute()
+                            # 1. Insert service history & capture the generated primary key row
+                            response = supabase.table("SERVICE_LOGS").insert(log_entry).execute()
 
-                            # Update the main tracking column
+                            # Extract the newly created ID to link our parts together
+                            new_service_id = response.data[0]['id']
+
+                            # 2. Iterate over the editable spreadsheet rows and submit parts used
+                            parts_to_insert = []
+                            for _, row in edited_parts_df.iterrows():
+                                # Ensure the user actually filled out the part name before logging it
+                                if row["Part Name"].strip() != "":
+                                    parts_to_insert.append({
+                                        "service_log_id": new_service_id,
+                                        "part_name": row["Part Name"],
+                                        "quantity": int(row["Quantity Used"])
+                                    })
+
+                            # Bulk insert parts array into Supabase if any exist
+                            if parts_to_insert:
+                                supabase.table("PARTS_USED").insert(parts_to_insert).execute()
+
+                            # 3. Update main engine asset tracker metadata
                             supabase.table("GENSET ASSET").update(asset_update).eq("G-CODE", g_code).execute()
 
                             st.cache_data.clear()
-                            st.success(f"✅ Service for {g_code} recorded. 'PLANNED_PM' has been updated.")
+                            st.success(f"✅ Service and inventory components successfully cataloged for {g_code}.")
                             st.rerun()
+
                         except Exception as e:
-                            st.error(f"Database Error: {e}")
+                            st.error(f"Database Write Failure: {e}")
 
             # --- SERVICE HISTORY VISUALIZATION ---
             st.divider()
@@ -800,6 +868,28 @@ else:
     elif selected == "PARTS AND PRODUCTS":
         st.info("****WELCOME TO THE PARTS AND PRODUCTS OVERVIEW****")
         # ----enter code with access permission-----
+        # 1. Fetch live consumption ledger from your database link table
+        try:
+            parts_response = supabase.table("PARTS_USED").select("part_name, quantity").execute()
+            df_parts = pd.DataFrame(parts_response.data)
+
+            if not df_parts.empty:
+                # 2. Group matching part strings together and sum up quantities
+                inventory_summary = df_parts.groupby("part_name")["quantity"].sum().reset_index()
+                inventory_summary.columns = ["Part Description", "Total Fleet Consumption To-Date"]
+
+                # 3. Output as a clean, styled ledger sheet
+                st.write("### 📊 Lifetime Fleet Inventory Usage Ledger")
+                st.dataframe(
+                    inventory_summary.style.bar(subset=["Total Fleet Consumption To-Date"], color="#b3d9ff", vmin=0),
+                    use_container_width=True,
+                    hide_index=True
+                )
+            else:
+                st.warning("No parts consumption logs are available yet.")
+
+        except Exception as e:
+            st.error(f"Failed to load inventory counts: {e}")
         pass
     elif selected == "FIXED ASSETS":
         st.info("****WELCOME TO FIXED ASSETS OTHER ASSETS AND TOOLS****")
