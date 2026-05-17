@@ -592,7 +592,7 @@ else:
 
         df = get_full_dataframe()
         #added maintenance and scheduling
-        if user_role in ["Developer",'manager','supervisor','engineer']:
+        if user_role in ["Developer",'manager','supervisor','engineer','Mechanical']:
 
             # Fetch current data for the selection menu
             df_assets = get_full_dataframe()
