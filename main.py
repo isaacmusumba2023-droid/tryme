@@ -482,8 +482,8 @@ else:
                                 "TYPE": u_type,
                                 "KVA": u_kva,
                                 "user_id": u_user_id,
-                                "MANUF_YR": str(u_manuf_yr),
-                                "SERVICE_YR_KOC": str(u_service_yr_koc),
+                                "MANUF_YR": u_manuf_yr.isoformat()if hasattr(u_manuf_yr, "isoformat") else str(u_manuf_yr),
+                                "SERVICE_YR_KOC": u_service_yr_koc.isoformat()if hasattr(u_service_yr_koc, "isoformat") else str(u_service_yr_koc),
                                 "RUN_Hrs": u_run_hrs,
                                 "AREA": u_area,
                                 "APPR_KVA": u_appr_kva,
@@ -492,7 +492,7 @@ else:
                                 "USER": u_user,
                                 "CREW": u_crew,
                                 "MOVED_FROM": u_moved_from,
-                                "MOVEMENT_DATE": u_movement_yr,
+                                "MOVEMENT_DATE": u_movement_yr.isoformat() if hasattr(u_movement_yr, "isoformat") else str(u_movement_yr),
                                 "REASON": u_reason
                             }
                             try:
