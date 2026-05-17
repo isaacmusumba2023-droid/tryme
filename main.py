@@ -303,7 +303,7 @@ else:
             except Exception as e:
                 st.error(f"error fetching data {e}")
         with tab3:
-            if user_role in ['Developer','manager','supervisor','engineer']:
+            if user_role in ['Developer','manager','supervisor','engineer',"Mechanical"]:
                 st.write("ADD NEW ASSETS:")
                 with st.form("add_new_asset", clear_on_submit=True):
                     col1, col2, col3, col4 = st.columns(4)
@@ -374,7 +374,7 @@ else:
                 st.warning("Permission Denied: Only Developers can add new assets.")
 
         with tab4:
-            if user_role in ['Developer', 'manager', 'supervisor', 'engineer']:
+            if user_role in ['Developer', 'manager', 'supervisor', 'engineer','Mechanical']:
                 try:
                     df = get_full_dataframe()
                     st.cache_data()
