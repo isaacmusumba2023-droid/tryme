@@ -389,7 +389,7 @@ else:
                         # 3. Start the form
                         with st.form("update_asset_form"):
                             st.caption(f"UPDATING ASSET: {select_gcode}")
-                            col1, col2, col3 = st.columns(3)
+                            col1, col2, col3 ,col4= st.columns(4)
 
                             with col1:
                                 # FIX: Use asset_data, not asset_list
@@ -417,10 +417,15 @@ else:
                                     temp_type = TYPE_LIST
 
                                 u_type = st.selectbox("TYPE", options=temp_type, index=temp_type.index(current_type))
+                                u_appr_kva = st.number_input("APPR_KVA", value=int(asset_data.get("APPR_KVA", 0)))
+
+                            with col4:
 
                                 u_kva = st.number_input("KVA", value=int(asset_data.get("KVA", 0)))
 
                                 u_user_id = st.number_input("user_id", value=int(asset_data.get("user_id", 0)))
+                                u_location = st.text_input("LOCATION", value=str(asset_data.get("LOCATION", "")))
+                                u_reason = st.text_area("REASON", value=str(asset_data.get("REASON", "")))
                                 with col2:
 
                                     def parse_date(date_str):
@@ -440,8 +445,8 @@ else:
                                     u_run_hrs = st.number_input("RUN_Hrs", value=int(asset_data.get("RUN_Hrs", 0)))
 
                                     u_area = st.text_input("AREA", value=str(asset_data.get("AREA", "")))
-                                    u_appr_kva = st.number_input("APPR_KVA", value=int(asset_data.get("APPR_KVA", 0)))
-                                    u_location = st.text_input("LOCATION", value=str(asset_data.get("LOCATION", "")))
+
+
                                 with col3:
                                     # adding options for field during update
                                     current_field = str(asset_data.get("FIELD", ""))
@@ -454,6 +459,7 @@ else:
                                     current_user = str(asset_data.get("USER", ""))
                                     u_options = USERS_LIST if current_user in USERS_LIST else USERS_LIST + [
                                         current_user]
+
                                     u_user = st.selectbox("USER", options=u_options,
                                                           index=u_options.index(current_user))
                                     # read me again mr.isaac
@@ -461,7 +467,7 @@ else:
                                     u_crew = st.number_input("CREW", value=int(asset_data.get("CREW", 0)))
                                     u_moved_from = st.text_input("MOVED_FROM",
                                                                  value=str(asset_data.get("MOVED_FROM", "")))
-                                    u_reason = st.text_area("REASON", value=str(asset_data.get("REASON", "")))
+
 
 
                             # 4. The Critical Submit Button
