@@ -23,7 +23,7 @@ def local_css(file_name):
         with open(file_name) as f:
             st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 local_css("style.css")
-#hiding water mark on streamlit
+#hiding watermark on streamlit
 
 import streamlit as st
 
@@ -605,287 +605,169 @@ else:
 
         # ----enter code with access permission-----
 
-        st.info("🕒 **CALENDAR-BASED MAINTENANCE SCHEDULING**")
 
-        df = get_full_dataframe()
-        #added maintenance and scheduling
-        if user_role in ["Developer",'manager','supervisor','engineer','Mechanical']:
+        st.info("🕒 **PREDICTIVE MAINTENANCE & DUE DATES FORECASTING**")
+        df_assets = get_full_dataframe()
 
-            # Fetch current data for the selection menu
-            df_assets = get_full_dataframe()
-            st.divider()
-            # 1. Select the asset to inspect
+        if user_role.lower() in ['developer', 'manager', 'supervisor', 'engineer',
+                                 'mechanical'] and not df_assets.empty:
+
+            # --- 1. DROPDOWN SEARCH & COUNTERS ---
             asset_list = df_assets['G-CODE'].tolist()
             selected_asset = st.selectbox("Search Asset for Service History", options=asset_list)
 
             if selected_asset:
-                # Get specific asset data
                 asset_data = df_assets[df_assets['G-CODE'] == selected_asset].iloc[0]
+                last_pm_date = pd.to_datetime(asset_data.get('PLANNED_PM', datetime.now())).date()
+                days_since_pm = (datetime.now().date() - last_pm_date).days
 
-                # Calculate Remaining Days based on PLANNED_PM column
-                last_pm_date = pd.to_datetime(asset_data['PLANNED_PM']).date()
-                today = datetime.now().date()
-                days_since_pm = (today - last_pm_date).days
-
-                # Calculate remainders for your 15-day and 90-day cycles
                 rem_a = 15 - days_since_pm
                 rem_b = 90 - days_since_pm
 
-                # 2. Display Countdown Gauges
                 c1, c2, c3 = st.columns(3)
                 c1.metric("Last Service Date", str(last_pm_date))
+                c2.metric("A SERVICE (15d) Countdown", f"{rem_a} Days", delta=rem_a,
+                          delta_color="normal" if rem_a > 0 else "inverse")
+                c3.metric("B SERVICE (90d) Countdown", f"{rem_b} Days", delta=rem_b,
+                          delta_color="normal" if rem_b > 0 else "inverse")
 
-                # Use colors to show urgency
-                a_color = "normal" if rem_a > 0 else "inverse"
-                c2.metric("A SERVICE (15d)", f"{rem_a} Days", delta=rem_a, delta_color=a_color)
-
-                b_color = "normal" if rem_b > 0 else "inverse"
-                c3.metric("B SERVICE (90d)", f"{rem_b} Days", delta=rem_b, delta_color=b_color)
-
-                # 3. Fetch History for THIS asset only
-                with st.expander("UNIT REPORT:"):
-                    st.write(f"##### 📜 Service History and Update for {selected_asset}")
-                    history_resp = supabase.table("SERVICE_LOGS").select("*").eq("g_code", selected_asset).order(
-                        "service_date", desc=True).execute()
-                    df_history = pd.DataFrame(history_resp.data)
-
-                    if not df_history.empty:
-                        # Highlight key hands-on troubleshooting and repair notes
-                        # Prepare data for the chart: Sort by date ascending
-                        chart_df = df_history.copy()
-                        chart_df['service_date'] = pd.to_datetime(chart_df['service_date'])
-                        chart_df = chart_df.sort_values('service_date')
-
-                        # Create the trend line
-                        fig_trend = px.line(
-                            chart_df,
-                            x='service_date',
-                            y='run_hours',
-                            markers=True,
-                            title=f"Usage Trend for {selected_asset}",
-                            labels={'service_date': 'Date', 'run_hours': 'Accumulated Hours'}
-                        )
-
-
-                        # Style the line to look professional
-                        fig_trend.update_traces(line_color='#0078D4', line_width=2)
-                        st.plotly_chart(fig_trend, use_container_width=True)
-
-                        # Calculate Average Daily Utilization
-                        if len(chart_df) > 1:
-                            total_hrs = chart_df['run_hours'].iloc[-1] - chart_df['run_hours'].iloc[0]
-                            total_days = (chart_df['service_date'].iloc[-1] - chart_df['service_date'].iloc[0]).days
-
-                            if total_days > 0:
-                                avg_daily = round(total_hrs / total_days, 1)
-                                st.info(
-                                    f"💡 *Utilization Analysis:* This asset averages *{avg_daily} hours/day. Based on this, "
-                                    f"you can expect the next 250-hour interval in approximately *{round(250 / avg_daily if avg_daily > 0 else 0)} days**.")
-                        st.table(df_history[['service_date', 'service_type', 'run_hours', 'notes']])
-
-                    else:
-                        st.info("No historical logs found for this unit.")
-            with st.expander("UPDATE SERVICE FORM :"):
-
-                with st.form("service_log_form", clear_on_submit=True):
-                    col1, col2 = st.columns(2)
-
-                    with col1:
-                        g_code = st.selectbox("Select G-CODE", options=df_assets['G-CODE'].tolist(),
-                                              key="service_g_code")
-                        s_date = st.date_input("Service Date", value=datetime.now().date())
-                        s_type = st.selectbox("Service Type", ["A SERVICE (15d)", "B SERVICE (90d)", "BREAKDOWN"])
-
-                    with col2:
-                        s_hrs = st.number_input("Current Run Hours", min_value=0, step=1)
-                        s_notes = st.text_area("Mechanical Notes (Repairs/Troubleshooting)")
-
-                    st.markdown("---")
-                    st.write("🔧 *Excel-Style Inventory Allocation*")
-                    st.caption("Double-click cells to enter details. Click '+' below the table to add more parts.")
-
-                    # 1. Define a template schema for parts used
-                    parts_template = pd.DataFrame([{
-                        "Part Name": "",
-                        "Quantity Used": 1
-                    }])
-
-                    # 2. Render an editable Excel-like grid inside your form
-                    edited_parts_df = st.data_editor(
-                        parts_template,
-                        num_rows="dynamic",  # Allows users to click '+' to add rows natively
-                        use_container_width=True,
-                        hide_index=True,
-                        column_config={
-                            "Part Name": st.column_config.SelectboxColumn(
-                                "Part Name / Description",
-                                options=["Oil Filter", "Fuel Filter", "Air Filter", "V-Belt", "15W40 Engine Oil (Ltrs)",
-                                         "Coolant"],
-                                required=True,
-                                width="large"
-                            ),
-                            "Quantity Used": st.column_config.NumberColumn(
-                                "Quantity Used",
-                                min_value=1,
-                                max_value=500,
-                                step=1,
-                                required=True,
-                                width="small"
-                            )
-                        }
-                    )
-
-                    submit_log = st.form_submit_button("Submit & Update Planned PM")
-
-                    if submit_log:
-                        # Step A: Package data for SERVICE_LOGS
-                        log_entry = {
-                            "g_code": g_code,
-                            "service_date": str(s_date),
-                            "service_type": s_type,
-                            "run_hours": s_hrs,
-                            "notes": s_notes
-                        }
-                        asset_update = {
-                            "PLANNED_PM": str(s_date),
-                            "RUN_Hrs": s_hrs
-                        }
-
+                # (Keep your existing col01 and col02 code here for the unit logs and data entry form)
+                col01, col02 = st.columns(2)
+                with col01:
+                    with st.expander("UNIT REPORT:"):
                         try:
-                            # 1. Insert service history & capture the generated primary key row
-                            response = supabase.table("SERVICE_LOGS").insert(log_entry).execute()
-
-                            # Extract the newly created ID to link our parts together
-                            new_service_id = response.data[0]['id']
-
-                            # 2. Iterate over the editable spreadsheet rows and submit parts used
-                            parts_to_insert = []
-                            for _, row in edited_parts_df.iterrows():
-                                # Ensure the user actually filled out the part name before logging it
-                                if row["Part Name"].strip() != "":
-                                    parts_to_insert.append({
-                                        "service_log_id": new_service_id,
-                                        "part_name": row["Part Name"],
-                                        "quantity": int(row["Quantity Used"])
-                                    })
-
-                            # Bulk insert parts array into Supabase if any exist
-                            if parts_to_insert:
-                                supabase.table("PARTS_USED").insert(parts_to_insert).execute()
-
-                            # 3. Update main engine asset tracker metadata
-                            supabase.table("GENSET ASSET").update(asset_update).eq("G-CODE", g_code).execute()
-
-                            st.cache_data.clear()
-                            st.success(f"✅ Service and inventory components successfully cataloged for {g_code}.")
-                            st.rerun()
-
+                            history_resp = supabase.table("SERVICE_LOGS").select("*").eq("g_code",
+                                                                                         selected_asset).order(
+                                "service_date", desc=True).execute()
+                            df_history = pd.DataFrame(history_resp.data)
+                            if not df_history.empty:
+                                chart_df = df_history.copy()
+                                chart_df['service_date'] = pd.to_datetime(chart_df['service_date'])
+                                fig_trend = px.line(chart_df.sort_values('service_date'), x='service_date',
+                                                    y='run_hours', title="Usage Trend Line")
+                                st.plotly_chart(fig_trend, use_container_width=True)
+                                st.table(df_history[['service_date', 'service_type', 'run_hours', 'notes']])
+                            else:
+                                st.info("No logs linked for asset index.")
                         except Exception as e:
-                            st.error(f"Database Write Failure: {e}")
+                            st.error(f"Error reading records logs: {e}")
 
-            # --- SERVICE HISTORY VISUALIZATION ---
+                with col02:
+                    with st.expander("UPDATE SERVICE FORM :"):
+                        with st.form("service_log_form", clear_on_submit=True):
+                            g_code = st.selectbox("Confirm G-CODE", options=[selected_asset])
+                            s_date = st.date_input("Service Date Verification")
+                            s_type = st.selectbox("Service Track Target",
+                                                  ["A SERVICE (15d)", "B SERVICE (90d)", "BREAKDOWN"])
+                            s_hrs = st.number_input("Current Running Hours Index", min_value=0)
+                            s_notes = st.text_area("Mechanical Notes & Components Log")
+
+                            parts_template = pd.DataFrame([{"Part Name": "", "Quantity Used": 1}])
+                            edited_parts_df = st.data_editor(parts_template, num_rows="dynamic",
+                                                             use_container_width=True, hide_index=True)
+
+                            if st.form_submit_button("Submit & Cycle Tracking Status"):
+                                try:
+                                    log_entry = {"g_code": g_code, "service_date": str(s_date), "service_type": s_type,
+                                                 "run_hours": s_hrs, "notes": s_notes}
+                                    supabase.table("SERVICE_LOGS").insert(log_entry).execute()
+                                    supabase.table(TABLE_NAME).update({"PLANNED_PM": str(s_date), "RUN_Hrs": s_hrs}).eq(
+                                        "G-CODE", g_code).execute()
+                                    st.cache_data.clear()
+                                    st.success("✅ Log entry tracked successfully.")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Write failure execution string: {e}")
+
+
+            # --- 2. THE NEW UPCOMING DUE DATES FORECAST GRAPH (Replaces Old History Timeline) ---
             st.divider()
-            st.caption("📊 Maintenance History & Reporting")
+            st.caption("📊 Fleet Maintenance Forecasting: Upcoming Due Dates")
 
             try:
-                # Fetch log history for the graph
-                log_resp = supabase.table("SERVICE_LOGS").select("*").execute()
-                df_logs = pd.DataFrame(log_resp.data)
+                # Clone the full assets table to calculate deadlines safely
+                df_forecast = df_assets.copy()
 
-                if not df_logs.empty:
-                    df_logs['service_date'] = pd.to_datetime(df_logs['service_date'])
+                # Make sure dates are properly formatted
+                df_forecast['PLANNED_PM'] = pd.to_datetime(df_forecast['PLANNED_PM'])
 
-                    # Create a Timeline of all services
-                    fig = px.scatter(
-                        df_logs,
-                        x="service_date",
-                        y="g_code",
-                        color="service_type",
-                        hover_data=["run_hours", "notes"],
-                        title="Historical Service Timeline",
-                        labels={"service_date": "Date", "g_code": "Asset ID"}
-                    )
-                    st.plotly_chart(fig, use_container_width=True)
+                # Drop rows where there is no baseline date to prevent app crashes
+                df_forecast = df_forecast.dropna(subset=['PLANNED_PM'])
 
-                    # 3. Download Report Button
-                    csv = df_logs.to_csv(index=False).encode('utf-8')
-                    st.download_button(
-                        label="📥 Download Service History (CSV)",
-                        data=csv,
-                        file_name=f'service_history_{datetime.now().strftime("%Y%m%d")}.csv',
-                        mime='text/csv',
-                    )
+                # Array to store our calculated calculations
+                due_records = []
 
+                for _, row in df_forecast.iterrows():
+                    gcode = row['G-CODE']
+                    last_pm = row['PLANNED_PM']
 
-                    def get_service_status(g_code):
-                        # 1. Get the date of the last B Service
-                        last_b = supabase.table("SERVICE_LOGS").select("service_date").eq("g_code", g_code).eq(
+                    # Check how many minor A services were done since the last major B service
+                    # to dynamically determine if the very next task is an A (15 days) or B (90 days)
+                    try:
+                        last_b = supabase.table("SERVICE_LOGS").select("service_date").eq("g_code", gcode).eq(
                             "service_type", "B SERVICE (90d)").order("service_date", desc=True).limit(1).execute()
-
-                        query = supabase.table("SERVICE_LOGS").select("id").eq("g_code", g_code).eq("service_type",
-                                                                                                    "A SERVICE (15d)")
-
-                        # 2. Only count A services done AFTER the last B service
+                        query = supabase.table("SERVICE_LOGS").select("id").eq("g_code", gcode).eq("service_type",
+                                                                                                   "A SERVICE (15d)")
                         if last_b.data:
                             query = query.gt("service_date", last_b.data[0]['service_date'])
-
                         a_count = len(query.execute().data)
+                    except:
+                        a_count = 0  # Fallback gracefully if logging references fail
 
-                        # 3. Determine what is next
-                        next_call = "B SERVICE (90d)" if a_count >= 5 else "A SERVICE (15d)"
-                        days_limit = 90 if a_count >= 5 else 15
+                    # Assign cycle interval parameters based on asset history
+                    if a_count >= 5:
+                        next_service_type = "B SERVICE (90d)"
+                        days_to_add = 90
+                    else:
+                        next_service_type = "A SERVICE (15d)"
+                        days_to_add = 15
 
-                        return a_count, next_call, days_limit
+                    # Calculate exact upcoming target calendar date
+                    calculated_due_date = last_pm + pd.Timedelta(days=days_to_add)
+                    days_remaining = (calculated_due_date.date() - datetime.now().date()).days
 
+                    due_records.append({
+                        "G-CODE": gcode,
+                        "Last Service Date": last_pm.strftime("%Y-%m-%d"),
+                        "Next Required Task": next_service_type,
+                        "Upcoming Due Date": calculated_due_date,
+                        "Days Remaining": days_remaining,
+                        "Status": "OVERDUE 🚨" if days_remaining < 0 else "Urgent (<=3 Days) ⚠️" if days_remaining <= 3 else "On Schedule ✅"
+                    })
 
-                    # --- Apply this to your Asset Passport ---
-                    if selected_asset:
-                        a_count, next_call, days_limit = get_service_status(selected_asset)
+                df_due_chart = pd.DataFrame(due_records)
 
-                        # Calculate days remaining
-                        asset_data = df_assets[df_assets['G-CODE'] == selected_asset].iloc[0]
-                        last_pm = pd.to_datetime(asset_data['PLANNED_PM']).date()
-                        days_since = (datetime.now().date() - last_pm).days
-                        rem_days = days_limit - days_since
+                if not df_due_chart.empty:
+                    # Sort so the engines closest to breaking down or overdue hit the top of your list
+                    df_due_chart = df_due_chart.sort_values(by="Upcoming Due Date", ascending=True)
 
-                        # Display status
-                        st.write(f"### 🔄 Service Cycle Status")
-                        c1, c2, c3 = st.columns(3)
-                        c1.metric("Minor Services Done", f"{a_count} / 5")
-                        c2.metric("Next Required Task", next_call)
+                    # Build a forward-looking scatter timeline showing exact target due dates
+                    fig_forecast = px.scatter(
+                        df_due_chart,
+                        x="Upcoming Due Date",
+                        y="G-CODE",
+                        color="Status",
+                        symbol="Next Required Task",
+                        color_discrete_map={"OVERDUE 🚨": "#FF4B4B", "Urgent (<=3 Days) ⚠️": "#FFAA00",
+                                            "On Schedule ✅": "#00CC66"},
+                        hover_data=["Last Service Date", "Days Remaining", "Next Required Task"],
+                        title="Timeline Grid: Target Execution Dates for Fleet Operations",
+                    )
 
-                        # Color coding for the countdown
-                        status_color = "normal" if rem_days > 0 else "inverse"
-                        c3.metric("Days Remaining", f"{rem_days} Days", delta=rem_days, delta_color=status_color)
+                    # Highlight 'Today' with a vertical baseline reference line so you see exactly what's late
+                    fig_forecast.add_vline(x=datetime.now().timestamp() * 1000, line_width=2, line_dash="dash",
+                                           line_color="black")
 
+                    st.plotly_chart(fig_forecast, use_container_width=True)
 
-                        def get_service_status(g_code):
-                            # 1. Get the date of the last B Service
-                            last_b = supabase.table("SERVICE_LOGS").select("service_date").eq("g_code", g_code).eq(
-                                "service_type", "B SERVICE (90d)").order("service_date", desc=True).limit(1).execute()
-
-                            query = supabase.table("SERVICE_LOGS").select("id").eq("g_code", g_code).eq("service_type",
-                                                                                                        "A SERVICE (15d)")
-
-                            # 2. Only count A services done AFTER the last B service
-                            if last_b.data:
-                                query = query.gt("service_date", last_b.data[0]['service_date'])
-
-                            a_count = len(query.execute().data)
-
-                            # 3. Determine what is next
-                            next_call = "B SERVICE (90d)" if a_count >= 5 else "A SERVICE (15d)"
-                            days_limit = 90 if a_count >= 5 else 15
-
-                            return a_count, next_call, days_limit
-
-
-
+                    # Show a scannable ledger right below it
+                    with st.expander("📋 Scannable Asset Due Date Tracker"):
+                        st.dataframe(df_due_chart, use_container_width=True, hide_index=True)
                 else:
-                    st.info("No service logs found yet.")
-            except Exception as e:
-                st.error(f"Error loading graph: {e}")
+                    st.info("No timeline data generated.")
 
+            except Exception as e:
+                st.error(f"Error generating predictive timeline layout: {e}")
 
 
     elif selected == "PARTS AND PRODUCTS":
