@@ -23,7 +23,21 @@ def local_css(file_name):
         with open(file_name) as f:
             st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 local_css("style.css")
+#hiding water mark on streamlit
 
+import streamlit as st
+
+# Hide Streamlit watermark and menus
+hide_streamlit_style = """
+            <style>
+            #MainMenu {visibility: hidden;}
+            footer {visibility: hidden;}
+            header {visibility: hidden;}
+            </style>
+            """
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+
+#markdown for page setting
 st.markdown(
         """
         <style>
@@ -111,7 +125,7 @@ if 'logged_in' not in st.session_state:
 if not st.session_state['logged_in']:
     with st.container():
         with st.form(key="login_form", clear_on_submit=True):
-            st.info("WELCOME FIELD OPERATIONS DIGITAL ASSETS MONITORING SYSTEM.(FODAMS)")
+            st.info("WELCOME TO FIELD OPERATIONS DIGITAL ASSETS SUPERVISORLY SYSTEM.(FODAMS)")
             name_1 = st.text_input("Enter your name").upper()
             passwd_1 = st.text_input("Enter password", type="password")
             submit = st.form_submit_button("Login")
