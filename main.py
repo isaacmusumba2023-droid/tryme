@@ -3,10 +3,14 @@ from pygments.lexers import resource
 from supabase import create_client,client
 from streamlit_option_menu import option_menu
 import pandas as pd
-from datetime import datetime, timedelta,date
+from datetime import datetime,date
 import plotly.express as px
 import os
 
+#effective service pm followup
+#digital asset monitoring
+#quick data analysis
+#asset heathy status and consumption
 
 max_date = datetime.today().date()
 min_date = date(1990,1,1)
@@ -128,7 +132,7 @@ if 'logged_in' not in st.session_state:
 if not st.session_state['logged_in']:
     with st.container():
         with st.form(key="login_form", clear_on_submit=True):
-            st.info("WELCOME TO FIELD OPERATIONS DIGITAL ASSETS SUPERVISORLY SYSTEM.(FODAMS)")
+            st.info("WELCOME TO FIELD OPERATIONS DIGITAL ASSETS MONITORING SYSTEM.(FODAMS)")
             name_1 = st.text_input("Enter your name").upper()
             passwd_1 = st.text_input("Enter password", type="password")
             submit = st.form_submit_button("Login")
@@ -653,95 +657,98 @@ else:
                             st.error(f"Error reading records logs: {e}")
 
                 with col02:
-                    with st.expander("UPDATE SERVICE FORM :", expanded=True):
-                        with st.form("service_log_form", clear_on_submit=True):
-                            col1, col2 = st.columns(2)
+                    if user_role in ['DEVELOPER', 'MANAGER','supervisor','TECHNICIAN']:
+                        with st.expander("UPDATE SERVICE FORM :", expanded=True):
+                            with st.form("service_log_form", clear_on_submit=True):
+                                col1, col2 = st.columns(2)
 
-                            with col1:
-                                # CHANGED: Now pulls the entire asset list so you can select or type any G-CODE
-                                g_code = st.selectbox(
-                                    "Select G-CODE for Service",
-                                    options=asset_list,
-                                    index=asset_list.index(selected_asset) if selected_asset in asset_list else 0
-                                )
-                                s_date = st.date_input("Service Date", value=datetime.now().date())
-                                s_type = st.selectbox("Service Track Target",
-                                                      ["A SERVICE (15d)", "B SERVICE (90d)", "BREAKDOWN"])
-
-                            with col2:
-                                s_hrs = st.number_input("Current Running Hours Index", min_value=0, step=1)
-                                s_notes = st.text_area("Mechanical Notes & Components Log")
-
-                            st.markdown("---")
-                            st.write("🔧 Excel-Style Inventory Allocation")
-                            st.caption(
-                                "Double-click cells to enter details. Click '+' below the table to add more parts.")
-
-                            parts_template = pd.DataFrame([{"Part Name": "", "Quantity Used": 1}])
-                            edited_parts_df = st.data_editor(
-                                parts_template,
-                                num_rows="dynamic",
-                                use_container_width=True,
-                                hide_index=True,
-                                column_config={
-                                    "Part Name": st.column_config.SelectboxColumn(
-                                        "Part Name / Description",
-                                        options=["Oil Filter", "Fuel Filter", "Air Filter", "V-Belt",
-                                                 "15W40 Engine Oil (Ltrs)", "Coolant"],
-                                        required=True,
-                                        width="large"
-                                    ),
-                                    "Quantity Used": st.column_config.NumberColumn(
-                                        "Quantity Used",
-                                        min_value=1,
-                                        step=1,
-                                        required=True,
-                                        width="small"
+                                with col1:
+                                    # CHANGED: Now pulls the entire asset list so you can select or type any G-CODE
+                                    g_code = st.selectbox(
+                                        "Select G-CODE for Service",
+                                        options=asset_list,
+                                        index=asset_list.index(selected_asset) if selected_asset in asset_list else 0
                                     )
-                                }
-                            )
+                                    s_date = st.date_input("Service Date", value=datetime.now().date())
+                                    s_type = st.selectbox("Service Track Target",
+                                                          ["A SERVICE (15d)", "B SERVICE (90d)", "BREAKDOWN"])
 
-                            if st.form_submit_button("Submit & Cycle Tracking Status"):
-                                try:
-                                    # Step A: Package data for SERVICE_LOGS
-                                    log_entry = {
-                                        "g_code": g_code,
-                                        "service_date": str(s_date),
-                                        "service_type": s_type,
-                                        "run_hours": s_hrs,
-                                        "notes": s_notes
+                                with col2:
+                                    s_hrs = st.number_input("Current Running Hours Index", min_value=0, step=1)
+                                    s_notes = st.text_area("Mechanical Notes & Components Log")
+
+                                st.markdown("---")
+                                st.write("🔧 Excel-Style Inventory Allocation")
+                                st.caption(
+                                    "Double-click cells to enter details. Click '+' below the table to add more parts.")
+
+                                parts_template = pd.DataFrame([{"Part Name": "", "Quantity Used": 1}])
+                                edited_parts_df = st.data_editor(
+                                    parts_template,
+                                    num_rows="dynamic",
+                                    use_container_width=True,
+                                    hide_index=True,
+                                    column_config={
+                                        "Part Name": st.column_config.SelectboxColumn(
+                                            "Part Name / Description",
+                                            options=["Oil Filter", "Fuel Filter", "Air Filter", "V-Belt",
+                                                     "15W40 Engine Oil (Ltrs)", "Coolant"],
+                                            required=True,
+                                            width="large"
+                                        ),
+                                        "Quantity Used": st.column_config.NumberColumn(
+                                            "Quantity Used",
+                                            min_value=1,
+                                            step=1,
+                                            required=True,
+                                            width="small"
+                                        )
                                     }
+                                )
 
-                                    # Write history log record and capture the row ID back
-                                    response = supabase.table("SERVICE_LOGS").insert(log_entry).execute()
-                                    new_service_id = response.data[0]['id']
+                                if st.form_submit_button("Submit & Cycle Tracking Status"):
+                                    try:
+                                        # Step A: Package data for SERVICE_LOGS
+                                        log_entry = {
+                                            "g_code": g_code,
+                                            "service_date": str(s_date),
+                                            "service_type": s_type,
+                                            "run_hours": s_hrs,
+                                            "notes": s_notes
+                                        }
 
-                                    # Step B: Read and bulk insert inventory components items
-                                    parts_to_insert = []
-                                    for _, row in edited_parts_df.iterrows():
-                                        if str(row["Part Name"]).strip() != "":
-                                            parts_to_insert.append({
-                                                "service_log_id": new_service_id,
-                                                "part_name": row["Part Name"],
-                                                "quantity": int(row["Quantity Used"])
-                                            })
+                                        # Write history log record and capture the row ID back
+                                        response = supabase.table("SERVICE_LOGS").insert(log_entry).execute()
+                                        new_service_id = response.data[0]['id']
 
-                                            if parts_to_insert:
-                                                supabase.table("PARTS_USED").insert(parts_to_insert).execute()
+                                        # Step B: Read and bulk insert inventory components items
+                                        parts_to_insert = []
+                                        for _, row in edited_parts_df.iterrows():
+                                            if str(row["Part Name"]).strip() != "":
+                                                parts_to_insert.append({
+                                                    "service_log_id": new_service_id,
+                                                    "part_name": row["Part Name"],
+                                                    "quantity": int(row["Quantity Used"])
+                                                })
 
-                                            # Step C: Dynamically update the correct engine row targeting the selectbox choice
-                                            supabase.table(TABLE_NAME).update({
-                                                "PLANNED_PM": str(s_date),
-                                                "RUN_Hrs": s_hrs
-                                            }).eq("G-CODE", g_code).execute()
+                                                if parts_to_insert:
+                                                    supabase.table("PARTS_USED").insert(parts_to_insert).execute()
 
-                                            st.cache_data.clear()
-                                            st.success(
-                                                f"✅ Service parameters mapped cleanly to asset log registry: {g_code}")
-                                            st.rerun()
-                                except Exception as e:
+                                                # Step C: Dynamically update the correct engine row targeting the selectbox choice
+                                                supabase.table(TABLE_NAME).update({
+                                                    "PLANNED_PM": str(s_date),
+                                                    "RUN_Hrs": s_hrs
+                                                }).eq("G-CODE", g_code).execute()
 
-                                    st.error(f"Write failure execution string: {e}")
+                                                st.cache_data.clear()
+                                                st.success(
+                                                    f"✅ Service parameters mapped cleanly to asset log registry: {g_code}")
+                                                st.rerun()
+                                    except Exception as e:
+                                        st.error(f"Write failure execution string: {e}")
+                    else:
+                        st.warning("access denied to upadate serviced assets")
+
 
 
             # --- 2. THE NEW UPCOMING DUE DATES FORECAST GRAPH (Replaces Old History Timeline) ---
