@@ -657,7 +657,7 @@ else:
                             st.error(f"Error reading records logs: {e}")
 
                 with col02:
-                    if user_role in ['DEVELOPER', 'MANAGER','supervisor','TECHNICIAN']:
+                    if user_role in ['Developer', 'MANAGER','supervisor','TECHNICIAN']:
                         with st.expander("UPDATE SERVICE FORM :", expanded=True):
                             with st.form("service_log_form", clear_on_submit=True):
                                 col1, col2 = st.columns(2)
