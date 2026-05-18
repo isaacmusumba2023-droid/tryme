@@ -27,15 +27,18 @@ local_css("style.css")
 
 import streamlit as st
 
-# Hide Streamlit watermark and menus
-hide_streamlit_style = """
+# Force-hide everything including the new toolbars and hosted footers
+hide_branding_style = """
             <style>
-            #MainMenu {visibility: hidden;}
-            footer {visibility: hidden;}
-            header {visibility: hidden;}
+            div[data-testid="stToolbar"] {visibility: hidden; height: 0rem !important;}
+            div[data-testid="stDecoration"] {visibility: hidden; height: 0rem !important;}
+            div[data-testid="stStatusWidget"] {visibility: hidden; height: 0rem !important;}
+            #MainMenu {visibility: hidden; height: 0rem !important;}
+            header {visibility: hidden; height: 0rem !important;}
+            footer {visibility: hidden; height: 0rem !important;}
             </style>
             """
-st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+st.markdown(hide_branding_style, unsafe_allow_html=True)
 
 #markdown for page setting
 st.markdown(
