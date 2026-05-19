@@ -239,56 +239,73 @@ else:
             st.rerun()
 
     #-----program line in----(source code)
-    if selected  == "GENERAL ASSETS":
+    if selected == "GENERAL ASSETS":
         st.info(f"****WELCOME TO FIELD_OPERATIONS INTERNAL DIGITAL SUPERVISORLY & MONITORING SYSTEM****")
-        #Facing data with function to filter
 
-        #-----write code here for (general assets)----
-        df=get_full_dataframe_with_realations()
-        V_greater = supabase.table("GENSET ASSET").select("*").gte("KVA", 200).execute()
-        #VALVE COUNT
-        V_TOTAL= len(df)
-        V_WORKSHOP= len(df[df['LOCATION'] == "WORKSHOP"])
-        V_USER1 = len(df[df['USER'] == "ESP-KOC"])
-        V_USER10 = len(df[df['USER'] == "READY"])
-        V_USER2 = len(df[df['USER'] == "JO-ESP"])
-        V_USER3 = len(df[df['USER'] == "BURGUN YARD"])
-        V_USER11 = len(df[df['USER'] == "WSH-POWER"])
-        V_USER5 = len(df[df['USER'] == "MOBILE"])
-        V_USER4 = len(df[df['LOCATION'] == "PDI"])
-        V_USER12 = len(df[df['USER'] == "NEW GENERATOR"])
-        V_USER6 = len(df[df['USER'] == "OFF-HIRE"])
-        V_USER7 =len(df[df['USER'] == "MISHRIF"])
-        V_USER13 = len(df[df['USER'] == "DESALTER PROJECT"])
-        V_USER8 = len(df[df['USER'] == "FIELD OP.REPAIR"])
-        V_USER9 = len(df[df['USER'] == "ABDALY FARM"])
-        V_KVA1 = len(V_greater.data)
-        V_B2= V_TOTAL-V_KVA1
+        # 1. Fetching Data with Safe Defaults
+        try:
+            df = get_full_dataframe_with_realations()
+            V_greater = supabase.table("GENSET ASSET").select("*").gte("KVA", 200).execute()
+            V_KVA1 = len(V_greater.data) if hasattr(V_greater, 'data') else 0
+        except Exception as e:
+            st.error(f"⚠️ Database connection failed: {e}")
+            df = pd.DataFrame()  # Fallback to an empty DataFrame so the UI elements don't crash
+            V_KVA1 = 0
 
-        #INSIDE COL ON PAGES
-        col1,col2,col3,col4,col5 = st.columns(5)
+        # 2. Base Counts
+        V_TOTAL = len(df)
+        V_B2 = max(0, V_TOTAL - V_KVA1)
+
+        # 3. Safe Extraction of Column Names
+        # This prevents KeyErrors across ALL metrics simultaneously
+        has_user = 'USER' in df.columns and not df.empty
+        has_location = 'LOCATION' in df.columns and not df.empty
+
+        # 4. Metric Calculations (Defaults to 0 if column is missing or empty)
+        V_WORKSHOP = len(df[df['LOCATION'] == "WORKSHOP"]) if has_location else 0
+        V_USER1 = len(df[df['USER'] == "ESP-KOC"]) if has_user else 0
+        V_USER10 = len(df[df['USER'] == "READY"]) if has_user else 0
+        V_USER2 = len(df[df['USER'] == "JO-ESP"]) if has_user else 0
+        V_USER3 = len(df[df['USER'] == "BURGUN YARD"]) if has_user else 0  # Double check if this should be 'BURGAN'
+        V_USER11 = len(df[df['USER'] == "WSH-POWER"]) if has_user else 0
+        V_USER5 = len(df[df['USER'] == "MOBILE"]) if has_user else 0
+        V_USER4 = len(df[df['LOCATION'] == "PDI"]) if has_location else 0  # Fixed column context logic
+        V_USER12 = len(df[df['USER'] == "NEW GENERATOR"]) if has_user else 0
+        V_USER6 = len(df[df['USER'] == "OFF-HIRE"]) if has_user else 0
+        V_USER7 = len(df[df['USER'] == "MISHRIF"]) if has_user else 0
+        V_USER13 = len(df[df['USER'] == "DESALTER PROJECT"]) if has_user else 0
+        V_USER8 = len(df[df['USER'] == "FIELD OP.REPAIR"]) if has_user else 0
+        V_USER9 = len(df[df['USER'] == "ABDALY FARM"]) if has_user else 0
+
+        # 5. UI Layout Display
+        col1, col2, col3, col4, col5 = st.columns(5)
+
         with col1:
-            st.metric("TOTAL ASSETS",value=V_TOTAL,delta_color="blue",border=True,height=120,delta="+")
-            st.metric("WORKSHOP",value=V_WORKSHOP,delta_color="blue",border=True,height=120,delta="+")
-            st.metric("ESP-KOC",value=V_USER1,delta_color="blue",border=True,height=120,delta="+")
-            st.metric("READY",value=V_USER10,delta_color="blue",border=True,height=120,delta="+")
+            st.metric("TOTAL ASSETS", value=V_TOTAL, delta_color="blue", border=True, height=120, delta="+")
+            st.metric("WORKSHOP", value=V_WORKSHOP, delta_color="blue", border=True, height=120, delta="+")
+            st.metric("ESP-KOC", value=V_USER1, delta_color="blue", border=True, height=120, delta="+")
+            st.metric("READY", value=V_USER10, delta_color="blue", border=True, height=120, delta="+")
+
         with col2:
-            st.metric("JO-ESP",value=V_USER2,delta_color="blue",border=True,height=120,delta="+")
-            st.metric("BURGAN YARD",value=V_USER3,delta_color="blue",border=True,height=120,delta="+")
-            st.metric("WSH-POWER",value=V_USER11,delta_color="blue",border=True,height=120,delta="+")
-            st.metric("KVA<200",value=V_B2,delta_color="blue",border=True,height=120,delta="+")
+            st.metric("JO-ESP", value=V_USER2, delta_color="blue", border=True, height=120, delta="+")
+            st.metric("BURGUN YARD", value=V_USER3, delta_color="blue", border=True, height=120, delta="+")
+            st.metric("WSH-POWER", value=V_USER11, delta_color="blue", border=True, height=120, delta="+")
+            st.metric("KVA<200", value=V_B2, delta_color="blue", border=True, height=120, delta="+")
+
         with col3:
-            st.metric("PDI",value=V_USER4,delta_color="blue",border=True,height=120,delta="+")
-            st.metric("MOBILE",value=V_USER5,delta_color="blue",border=True,height=120,delta="+")
-            st.metric("NEW-GENERATOR",value=V_USER12,delta_color="blue",border=True,height=120,delta="+")
+            st.metric("PDI", value=V_USER4, delta_color="blue", border=True, height=120, delta="+")
+            st.metric("MOBILE", value=V_USER5, delta_color="blue", border=True, height=120, delta="+")
+            st.metric("NEW-GENERATOR", value=V_USER12, delta_color="blue", border=True, height=120, delta="+")
+
         with col4:
-            st.metric("OFF-HIRE",value=V_USER6,delta_color="blue",border=True,height=120,delta="+")
-            st.metric("MISHRIF",value=V_USER7,delta_color="blue",border=True,height=120,delta="+")
-            st.metric("DESALTER-PROJECT",value=V_USER13,delta_color="blue",border=True,height=120,delta="+")
+            st.metric("OFF-HIRE", value=V_USER6, delta_color="blue", border=True, height=120, delta="+")
+            st.metric("MISHRIF", value=V_USER7, delta_color="blue", border=True, height=120, delta="+")
+            st.metric("DESALTER-PROJECT", value=V_USER13, delta_color="blue", border=True, height=120, delta="+")
+
         with col5:
-            st.metric("FIELD OP.REPAIR",value=V_USER8,delta_color="blue",border=True,height=120,delta="+")
-            st.metric("ABDALY FARM",value=V_USER9,delta_color="blue",border=True,height=120,delta="+")
-            st.metric("KVA=>200",value=V_KVA1,delta_color="blue",border=True,height=120,delta="+")
+            st.metric("FIELD OP.REPAIR", value=V_USER8, delta_color="blue", border=True, height=120, delta="+")
+            st.metric("ABDALY FARM", value=V_USER9, delta_color="blue", border=True, height=120, delta="+")
+            st.metric("KVA=>200", value=V_KVA1, delta_color="blue", border=True, height=120, delta="+")
         "---"
         st.caption("REPORTS")
         col1,col2,col3=st.columns(3)
@@ -374,48 +391,60 @@ else:
             except Exception as e:
                 st.error(f"error fetching data {e}")
         with tab3:
-            if user_role in ['Developer','manager','supervisor','engineer',"Mechanical"]:
+            if user_role in ['Developer', 'manager', 'supervisor', 'engineer', 'Mechanical']:
                 st.write("ADD NEW ASSETS:")
                 map_df = get_location_mappings()
+
                 if not map_df.empty:
+                    st.caption("🗺️ Route Selection Path (Updates dynamically)")
+
+                    # --- DYNAMIC ROUTING DROP-DOWNS (PLACED OUTSIDE THE FORM) ---
+                    col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+
+                    with col_m1:
+                        status_options = sorted(map_df["TRANSFER_STATUS"].unique().tolist())
+                        transfer_status_val = st.selectbox("Select Transfer Status", options=status_options)
+                        filtered_by_status = map_df[map_df["TRANSFER_STATUS"] == transfer_status_val]
+
+                    with col_m2:
+                        contract_options = sorted(filtered_by_status["CONTRACT_NO"].unique().tolist())
+                        contract = st.selectbox("CONTRACT", options=contract_options)
+                        filtered_by_contract = filtered_by_status[filtered_by_status["CONTRACT_NO"] == contract]
+
+                    with col_m3:
+                        field_options = sorted(filtered_by_contract["FIELD"].unique().tolist())
+                        field = st.selectbox("FIELD:", options=field_options)
+                        filtered_by_field = filtered_by_contract[filtered_by_contract["FIELD"] == field]
+
+                    with col_m4:
+                        location_options = sorted(filtered_by_field["LOCATION"].unique().tolist())
+                        location = st.selectbox("LOCATION:", options=location_options)
+
+                    # --- FORM INITIALIZATION FOR STATIC METRICS ---
                     with st.form("add_new_asset", clear_on_submit=True):
                         col1, col2, col3, col4 = st.columns(4)
-                        with col1:
-                            status_options = sorted(map_df["TRANSFER_STATUS"].unique().tolist())
-                            transfer_status_val = st.selectbox("Select Transfer Status", options=status_options)
-                            filtered_by_status = map_df[map_df["TRANSFER_STATUS"] == transfer_status_val]
 
+                        with col1:
                             g_code = st.text_input("G-CODE")
                             serial_no = st.text_input("SERIAL_NO")
                             model = st.selectbox("MODEL", options=MODEL_LIST)
                             asset_type = st.selectbox("TYPE", options=TYPE_LIST)
 
                         with col2:
-                            contract_options = sorted(filtered_by_status["CONTRACT_NO"].unique().tolist())
-                            contract = st.selectbox("CONTRACT", options=contract_options)
-                            filtered_by_contract = filtered_by_status[filtered_by_status["CONTRACT_NO"] == contract]
-
                             kva = st.number_input("KVA", min_value=0, step=1)
                             user_id = st.number_input("user_id:", min_value=0, step=1)
-                            manuf_yr = st.date_input("MANUF_YR:",min_value=min_date,max_value=max_date)
+                            manuf_yr = st.date_input("MANUF_YR:", min_value=min_date, max_value=max_date)
                             service_yr_koc = st.date_input("SERVICE_YR_KOC")
-                        with col3:
-                            field_options = sorted(filtered_by_contract["FIELD"].unique().tolist())
-                            field = st.selectbox("FIELD:", options=field_options)
-                            filtered_by_field = filtered_by_contract[filtered_by_contract["FIELD"] == field]
 
+                        with col3:
                             run_hrs = st.number_input("RUN_Hrs", min_value=0, step=1)
                             area = st.selectbox("AREA", options=Area_LIST)
                             appr_kva = st.number_input("APPR_KVA", min_value=0, step=1)
 
-
                         with col4:
-                            location_options = sorted(filtered_by_field["LOCATION"].unique().tolist())
-                            location = st.selectbox("LOCATION:", options=location_options)
-
                             user = st.selectbox("USER", options=USERS_LIST)
                             crew = st.number_input("CREW", min_value=0, step=1)
-                            movement_date = st.date_input("MOVEMENT_DATE",min_value=min_date,max_value=max_date)
+                            movement_date = st.date_input("MOVEMENT_DATE", min_value=min_date, max_value=max_date)
                             moved_from = st.text_input("MOVED_FROM")
                             reason = st.text_area("REASON")
 
@@ -433,7 +462,6 @@ else:
                             if not matching_rows.empty:
                                 chosen_mapping_id = int(matching_rows.iloc[0]["id"])
 
-                                # Prepare your data dictionary with both the text status column and the Foreign Key link
                                 new_data = {
                                     "G-CODE": g_code,
                                     "SERIAL_NO": serial_no,
@@ -441,8 +469,8 @@ else:
                                     "TYPE": asset_type,
                                     "KVA": kva,
                                     "user_id": user_id,
-                                    "TRANSFER_STATUS": transfer_status_val,  # 👈 Added your native column text here!
-                                    "location_mapping_id": chosen_mapping_id,  # 👈 Relational constraint key
+                                    "TRANSFER_STATUS": transfer_status_val,
+                                    "location_mapping_id": chosen_mapping_id,
                                     "MANUF_YR": str(manuf_yr),
                                     "SERVICE_YR_KOC": str(service_yr_koc),
                                     "RUN_Hrs": run_hrs,
@@ -464,12 +492,11 @@ else:
                                 except Exception as e:
                                     st.error(f"❌ Error adding asset: {e}")
                             else:
-                                st.error(
-                                    "The chosen path is valid in the UI but could not match a row in your backend DB configuration.")
-
-
+                                st.error("❌ The chosen path is valid in the UI but could not match a row in your backend DB configuration.")
+                else:
+                    st.error("⚠️ Master mapping rules could not be parsed from database.")
             else:
-                st.warning("Permission Denied: Only Developers can add new assets.")
+                st.warning("Permission Denied: Authorized roles only.")
 
         with tab4:
             # ----- PLACE THIS ENTIRE BLOCK DIRECTLY INSIDE TAB 4 -----
@@ -484,67 +511,81 @@ else:
                         # 2. Extract specific active row data as a baseline dictionary
                         asset_data = df[df["G-CODE"] == select_gcode].iloc[0].to_dict()
 
-                        # 3. Form Initialization
+                        # --- DYNAMIC ROUTING STEP (KEPT OUTSIDE THE FORM) ---
+                        # Fetch master configuration routing database
+                        map_df = get_location_mappings()
+                        chosen_mapping_id = None
+
+                        u_transfer_status = asset_data.get("TRANSFER_STATUS", "")
+                        u_contract = asset_data.get("CONTRACT_NO", "")
+                        u_field = asset_data.get("FIELD", "")
+                        u_location = asset_data.get("LOCATION", "")
+
+                        if not map_df.empty:
+                            st.caption("🗺️ Route Modification Path (Changes update dynamically)")
+                            col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+
+                            # Extract active column configurations safely for dropdown state defaults
+                            current_status = str(asset_data.get("TRANSFER_STATUS", ""))
+                            current_contract = str(asset_data.get("CONTRACT_NO", ""))
+                            current_field = str(asset_data.get("FIELD", ""))
+                            current_location = str(asset_data.get("LOCATION", ""))
+
+                            with col_m1:
+                                status_options = sorted(map_df["TRANSFER_STATUS"].unique().tolist())
+                                status_index = status_options.index(
+                                    current_status) if current_status in status_options else 0
+                                u_transfer_status = st.selectbox("TRANSFER_STATUS", options=status_options,
+                                                                 index=status_index)
+                                filtered_by_status = map_df[map_df["TRANSFER_STATUS"] == u_transfer_status]
+
+                            with col_m2:
+                                contract_options = sorted(filtered_by_status["CONTRACT_NO"].unique().tolist())
+                                contract_index = contract_options.index(
+                                    current_contract) if current_contract in contract_options else 0
+                                u_contract = st.selectbox("CONTRACT_NO", options=contract_options, index=contract_index)
+                                filtered_by_contract = filtered_by_status[
+                                    filtered_by_status["CONTRACT_NO"] == u_contract]
+
+                            with col_m3:
+                                field_options = sorted(filtered_by_contract["FIELD"].unique().tolist())
+                                field_index = field_options.index(
+                                    current_field) if current_field in field_options else 0
+                                u_field = st.selectbox("FIELD", options=field_options, index=field_index)
+                                filtered_by_field = filtered_by_contract[filtered_by_contract["FIELD"] == u_field]
+
+                            with col_m4:
+                                location_options = sorted(filtered_by_field["LOCATION"].unique().tolist())
+                                location_index = location_options.index(
+                                    current_location) if current_location in location_options else 0
+                                u_location = st.selectbox("LOCATION", options=location_options, index=location_index)
+
+                            # Pre-calculate matching ID from the dynamic path
+                            matching_rows = map_df[
+                                (map_df["TRANSFER_STATUS"] == u_transfer_status) &
+                                (map_df["CONTRACT_NO"] == u_contract) &
+                                (map_df["FIELD"] == u_field) &
+                                (map_df["LOCATION"] == u_location)
+                                ]
+                            if not matching_rows.empty:
+                                chosen_mapping_id = int(matching_rows.iloc[0]["id"])
+                        else:
+                            st.error("⚠️ Master mapping rules could not be parsed from database.")
+
+                        # 3. Form Initialization for specifications input
                         with st.form("update_asset_form"):
-                            st.caption(f"🔧 UPDATING ASSET LOCATION MATRIX & SPECIFICATIONS FOR: **{select_gcode}**")
-
-                            # Fetch master configuration routing database
-                            map_df = get_location_mappings()
-
-                            if not map_df.empty:
-                                st.caption(" 🗺️ Route Modification Path")
-                                col_m1, col_m2, col_m3, col_m4 = st.columns(4)
-
-                                # Extract active column configurations safely for dropdown state defaults
-                                current_status = str(asset_data.get("TRANSFER_STATUS", ""))
-                                current_contract = str(asset_data.get("CONTRACT_NO", ""))
-                                current_field = str(asset_data.get("FIELD", ""))
-                                current_location = str(asset_data.get("LOCATION", ""))
-
-                                with col_m1:
-                                    status_options = sorted(map_df["TRANSFER_STATUS"].unique().tolist())
-                                    status_index = status_options.index(
-                                        current_status) if current_status in status_options else 0
-                                    u_transfer_status = st.selectbox("TRANSFER_STATUS", options=status_options,
-                                                                     index=status_index)
-                                    filtered_by_status = map_df[map_df["TRANSFER_STATUS"] == u_transfer_status]
-
-                                with col_m2:
-                                    contract_options = sorted(filtered_by_status["CONTRACT_NO"].unique().tolist())
-                                    contract_index = contract_options.index(
-                                        current_contract) if current_contract in contract_options else 0
-                                    u_contract = st.selectbox("CONTRACT_NO", options=contract_options,
-                                                              index=contract_index)
-                                    filtered_by_contract = filtered_by_status[
-                                        filtered_by_status["CONTRACT_NO"] == u_contract]
-
-                                with col_m3:
-                                    field_options = sorted(filtered_by_contract["FIELD"].unique().tolist())
-                                    field_index = field_options.index(
-                                        current_field) if current_field in field_options else 0
-                                    u_field = st.selectbox("FIELD", options=field_options, index=field_index)
-                                    filtered_by_field = filtered_by_contract[filtered_by_contract["FIELD"] == u_field]
-
-                                with col_m4:
-                                    location_options = sorted(filtered_by_field["LOCATION"].unique().tolist())
-                                    location_index = location_options.index(
-                                        current_location) if current_location in location_options else 0
-                                    u_location = st.selectbox("LOCATION", options=location_options,
-                                                              index=location_index)
-                            else:
-                                st.error("⚠️ Master mapping rules could not be parsed from database.")
-
+                            st.caption(f"🔧 UPDATING ASSET SPECIFICATIONS FOR: **{select_gcode}**")
 
                             # 4. Standard Specifications 4-Column Layout Grid Rows
                             col1, col2, col3, col4 = st.columns(4)
 
                             with col1:
                                 u_serial_no = st.text_input("SERIAL_NO", value=str(asset_data.get("SERIAL_NO", "")))
-
                                 current_model = str(asset_data.get("MODEL", ""))
                                 temp_model = MODEL_LIST if current_model in MODEL_LIST else MODEL_LIST + [current_model]
                                 u_model = st.selectbox("MODEL", options=temp_model,
                                                        index=temp_model.index(current_model))
+
                                 current_type = str(asset_data.get("TYPE", ""))
                                 temp_type = TYPE_LIST if current_type in TYPE_LIST else TYPE_LIST + [current_type]
                                 u_type = st.selectbox("TYPE", options=temp_type, index=temp_type.index(current_type))
@@ -559,17 +600,16 @@ else:
 
 
                                 u_manuf_yr = st.date_input("MANUF_YR", value=parse_date(asset_data.get("MANUF_YR", "")))
-                                u_movement_yr = st.date_input("MOVEMENT_DATE", value=parse_date(asset_data.get("MOVEMENT_DATE", "")),
+                                u_movement_yr = st.date_input("MOVEMENT_DATE",
+                                                              value=parse_date(asset_data.get("MOVEMENT_DATE", "")),
                                                               min_value=min_date, max_value=max_date)
                                 u_service_yr_koc = st.date_input("SERVICE_YR_KOC",
                                                                  value=parse_date(asset_data.get("SERVICE_YR_KOC", "")))
                                 u_run_hrs = st.number_input("RUN_Hrs", value=int(asset_data.get("RUN_Hrs", 0)))
 
-
                             with col3:
                                 u_crew = st.number_input("CREW", value=int(asset_data.get("CREW", 0)))
                                 u_moved_from = st.text_input("MOVED_FROM", value=str(asset_data.get("MOVED_FROM", "")))
-
                                 current_user = str(asset_data.get("USER", ""))
                                 user_index = USERS_LIST.index(current_user) if current_user in USERS_LIST else 0
                                 u_user = st.selectbox("USER", options=USERS_LIST, index=user_index)
@@ -580,22 +620,11 @@ else:
                                 u_area = st.text_input("AREA", value=str(asset_data.get("AREA", "")))
                                 u_reason = st.text_area("REASON", value=str(asset_data.get("REASON", "")))
 
-                                # Form boundaries submission placement
+                            # Form boundary submission button
                             submit_button = st.form_submit_button("SUBMIT CHANGES")
-
                             # 5. Database execution management payload handling
                             if submit_button:
-
-                                matching_rows = map_df[
-                                    (map_df["TRANSFER_STATUS"] == u_transfer_status) &
-                                    (map_df["CONTRACT_NO"] == u_contract) &
-                                    (map_df["FIELD"] == u_field) &
-                                    (map_df["LOCATION"] == u_location)
-                                    ]
-
-                                if not matching_rows.empty:
-                                    chosen_mapping_id = int(matching_rows.iloc[0]["id"])
-
+                                if chosen_mapping_id is not None:
                                     updated_data = {
                                         "SERIAL_NO": u_serial_no,
                                         "MODEL": u_model,
@@ -604,7 +633,8 @@ else:
                                         "user_id": u_user_id,
                                         "TRANSFER_STATUS": u_transfer_status,
                                         "location_mapping_id": chosen_mapping_id,
-                                        "MANUF_YR": u_manuf_yr.isoformat() if hasattr(u_manuf_yr, "isoformat") else str(u_manuf_yr),
+                                        "MANUF_YR": u_manuf_yr.isoformat() if hasattr(u_manuf_yr, "isoformat") else str(
+                                            u_manuf_yr),
                                         "SERVICE_YR_KOC": u_service_yr_koc.isoformat() if hasattr(u_service_yr_koc,
                                                                                                   "isoformat") else str(
                                             u_service_yr_koc),
@@ -614,26 +644,32 @@ else:
                                         "USER": u_user,
                                         "CREW": u_crew,
                                         "MOVED_FROM": u_moved_from,
-                                        "MOVEMENT_DATE": u_movement_yr.isoformat() if hasattr(u_movement_yr, "isoformat") else str(
+                                        "MOVEMENT_DATE": u_movement_yr.isoformat() if hasattr(u_movement_yr,
+                                                                                              "isoformat") else str(
                                             u_movement_yr),
                                         "REASON": u_reason,
-                                        "updated_by":st.session_state.get('user_name','UNKOWN')
+                                        "updated_by": st.session_state.get('user_name', 'UNKNOWN')
                                     }
 
                                     try:
                                         with st.spinner("Pushing record modifications..."):
-                                            supabase.table(TABLE_NAME).update(updated_data).eq("G-CODE", select_gcode).execute()
+                                            supabase.table(TABLE_NAME).update(updated_data).eq("G-CODE",
+                                                                                               select_gcode).execute()
                                             st.cache_data.clear()
                                             st.success(f"🎉 Asset {select_gcode} altered successfully!")
                                             st.rerun()
                                     except Exception as e:
                                         st.error(f"❌ Transaction rejected by backend database: {e}")
                                 else:
-                                    st.error("Could not find a valid matching entry ID inside your master location mapping tables.")
-                            else:
-                                st.warning("No assets available in the current database view.")
+                                    st.error(
+                                        "❌ Could not find a valid matching entry ID inside your master location mapping tables. Check your route options.")
+                    else:
+                        st.warning("No assets available in the current database view.")
                 except Exception as e:
-                            st.error(f"Operational form execution crashed: {e}")
+                    st.error(f"Operational form execution crashed: {e}")
+
+
+
 
         with tab5:
             st.subheader("📜 System Operations Audit History Logs")
@@ -1203,6 +1239,36 @@ else:
                                         st.error(message)
                     else:
                         st.info("No mapped paths configured in database tables yet.")
+
+        # Place this inside an administrative view/tab
+        if user_role in ['Developer', 'manager']:
+            st.markdown("### 🗑️ Remove Master Location Mapping")
+
+            map_df = get_location_mappings()
+            if not map_df.empty:
+                # Create a clean display string for the dropdown selection
+                map_df['display_path'] = map_df['TRANSFER_STATUS'] + " ➔ " + map_df['CONTRACT_NO'] + " ➔ " + map_df[
+                    'LOCATION']
+
+                target_mapping = st.selectbox("Select Target Route to Permanently Delete:",
+                                              options=map_df['display_path'].tolist())
+                selected_row = map_df[map_df['display_path'] == target_mapping].iloc[0]
+                target_id = int(selected_row['id'])
+
+                if st.button("EXECUTE DELETION", type="primary"):
+                    try:
+                        # Step A: Safe Cleanup - Set any asset using this ID to Null/None first
+                        supabase.table(TABLE_NAME).update({"location_mapping_id": None}).eq("location_mapping_id",
+                                                                                            target_id).execute()
+
+                        # Step B: Remove the configuration row from your master rules table
+                        supabase.table("LOCATION_MAPPING").delete().eq("id", target_id).execute()
+
+                        st.cache_data.clear()
+                        st.success("💥 Location mapping removed and linked assets safely unlinked!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Deletion script rejected by database: {e}")
 
 
 
