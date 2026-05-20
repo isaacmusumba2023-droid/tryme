@@ -5,11 +5,8 @@ from supabase import create_client, Client
 from streamlit_option_menu import option_menu
 import plotly.express as px
 import os
-#BNEW
-# Inject CSS to hide the top bar, main menu, and footer
-import streamlit as st
 
-# 1. Inject CSS to completely unify the top bar and sidebar
+#ect CSS to completely unify the top bar and sidebar
 st.html(
     """
     <style>
@@ -38,7 +35,7 @@ st.html(
             left: 0;
             width: 100%;
             height: 50px;
-            background-color: #1E1E1E; /* Match your app background theme */
+            background-color: #99ccff; /* Match your app background theme */
             color: #FFFFFF;
             padding: 0px 20px;
 
@@ -54,13 +51,13 @@ st.html(
 
         /* Push main content down so it doesn't hide behind the top bar */
         .block-container {
-            padding-top: 2rem !important;
+            padding-top: 0.5rem !important;
         }
     </style>
 
     <div class="unified-top-bar">
         <span style="font-weight: bold; font-size: 1.1rem;">⚡ FIELD OPERATIONS DIGITAL ASSET MONITORING SYSTEM(FODAMS)</span>
-        <span style="font-size: 0.85rem; color: #00FF66; background: #2A2A2A; padding: 1px 5px; border-radius: 4px;">
+        <span style="font-size: 0.85rem; color: #e63900; background: ##80d4ff; padding: 1px 5px; border-radius: 4px;">
             Developer Mode
         </span>
     </div>
@@ -184,6 +181,7 @@ def get_full_dataframe_with_realations():
         st.warning("FODAMS cannot reach the database. Please check your internet connection or VPN.")
         return pd.DataFrame()
 
+
 # --- SECURITY APP STATE TRACKERS ---
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
@@ -192,7 +190,6 @@ if "user_email" not in st.session_state:
 if "user_role" not in st.session_state:
     st.session_state.user_role = ["Guest",'developer']
 
-# --- GATEWAY AUTHENTICATION SHIELD ---
 # --- GATEWAY AUTHENTICATION SHIELD ---
 if not st.session_state.get('authenticated', False):
     st.title("🔒 FODAMS Internal Gate")
@@ -214,7 +211,7 @@ if not st.session_state.get('authenticated', False):
 
                     target_uid = auth_response.user.id
 
-                    # 2. NOW query the profile table (RLS will now allow this because the user is authenticated!)
+                    # 2. NOW query the profile table
                     profile_query = supabase.table("PROFILES").select("role").eq("id", target_uid).execute()
 
                     if profile_query.data and len(profile_query.data) > 0:
@@ -238,7 +235,9 @@ if not st.session_state.get('authenticated', False):
 
     # Stop execution here if not logged in yet
     st.stop()
-# --- DYNAMIC NAVIGATION MENU MENU BUILDER ---
+
+
+# --- DYNAMIC NAVIGATION MENU BUILDER ---
 all_menu_options = {
     "GENERAL ASSETS": {"icon": "diagram-3-fill",
                        "roles": ["Developer", "Manager", "Mechanical", "Supervisor", "Admin", "Engineer"]},
@@ -262,36 +261,85 @@ user_role = st.session_state.get('user_role', 'Guest')
 allowed_options = [opt for opt, data in all_menu_options.items() if user_role in data["roles"]]
 allowed_icons = [all_menu_options[opt]["icon"] for opt in allowed_options]
 
-# Safe-guard: If the user role matches absolutely nothing, provide a default layout view
 if not allowed_options:
     allowed_options = ["ACCESS RESTRICTED"]
     allowed_icons = ["exclamation-triangle-fill"]
 
+
+# --- SIDEBAR SCREEN LAYOUT COMPRESSION (THE FIX) ---
+st.html(
+    """
+    <style>
+        /* 1. Force the sidebar shell to match the window viewport and kill scroll leaks */
+        [data-testid="stSidebar"] {
+            overflow-y: hidden !important; 
+        }
+
+        /* 2. Strip massive default padding around your session labels and menu */
+        [data-testid="stSidebarUserContent"] {
+            padding-top: 0rem !important;
+            padding-bottom: 0.5rem !important;
+            padding-left: 0.75rem !important;
+            padding-right: 0.75rem !important;
+            height: 100vh !important;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        /* 3. Drop down layout gaps between consecutive sidebar components */
+        [data-testid="stVerticalBlockBorderWrapper"] > div > div {
+            gap: 0.35rem !important;
+        }
+
+        /* 4. Clamp the internal vertical padding inside your stream option-menu elements */
+        .nav-link {
+            padding: 4px 8px !important;
+            margin: 1px 0px !important;
+        }
+
+        /* 5. Clean, low-profile layout for the system operational buttons */
+        [data-testid="stSidebar"] .stButton > button {
+            padding-top: 0px !important;
+            padding-bottom: 0px !important;
+            height: 28px !important;
+            font-size: 11px !important;
+            min-height: unset !important;
+        }
+
+        /* 6. Make dividers narrower */
+        [data-testid="stSidebar"] hr {
+            margin-top: 0.5rem !important;
+            margin-bottom: 0.5rem !important;
+        }
+    </style>
+    """
+)
+
 # --- SIDEBAR INTERACTION MATRIX ---
 with st.sidebar:
-    st.markdown(f"### 🛡️ Secure Session")
-    st.caption(f"User: *{st.session_state.user_email}*")
-    st.caption(f"Role: *{user_role.upper()}*")
-    try:
-        st.image('img.png', width=80)
-    except:
-        pass
+    # We combine the text labels into a single layout line block to save vertical space
+    st.markdown(f"#### 🛡️ *FODAMS Secure Session*")
+    st.caption(f"*User:* {st.session_state.user_email} | *Role:* {user_role.upper()}")
 
+    # Render option_menu with your explicit styling properties
     selected = option_menu(
-        menu_title="FIELD_OP",
+        menu_title=None,  # Set to None to remove the massive title header box entirely
         options=allowed_options,
         icons=allowed_icons,
         menu_icon="person-gear",
         default_index=0,
         styles={
-            "container": {"background-color": "#cceeff"},
+            "container": {"background-color": "#cceeff", "padding": "2px !important"},
             "nav-link": {"font-size": "11px", "text-align": "left", "color": "#000000"},
-            "nav-link-selected": {"background-color": "#b3d9ff"},
+            "nav-link-selected": {"background-color": "#b3d9ff", "font-weight": "bold"},
         }
     )
 
     st.divider()
-    if st.button("REFRESH PAGE", use_container_width=True):
+
+    # Combined action triggers to save space
+    if st.button("🔄 REFRESH SYSTEM DATA", use_container_width=True):
         st.rerun()
 
     if st.button("Log Out 🚪", type="primary", use_container_width=True):
@@ -311,7 +359,7 @@ if selected == "ACCESS RESTRICTED":
         "Please contact your database Administrator to configure your organizational title in the backend 'PROFILES' registry table.")
     st.stop()
 
-
+# -----program line in----(source code continuation)
 #-----program line in----(source code)
 if selected == "GENERAL ASSETS":
     st.info(f"****WELCOME TO FIELD_OPERATIONS INTERNAL DIGITAL SUPERVISORLY & MONITORING SYSTEM****")
