@@ -5,7 +5,69 @@ from supabase import create_client, Client
 from streamlit_option_menu import option_menu
 import plotly.express as px
 import os
+#BNEW
+# Inject CSS to hide the top bar, main menu, and footer
+import streamlit as st
 
+# 1. Inject CSS to completely unify the top bar and sidebar
+st.html(
+    """
+    <style>
+        /* Hide native Streamlit header entirely */
+        [data-testid="stHeader"] {
+            display: none !important;
+        }
+
+        /* The Secret Sauce: Force the sidebar to drop down slightly 
+           so it neatly aligns below your custom top bar */
+        [data-testid="stSidebar"] {
+            top: 50px !important; /* Must match the height of your top bar */
+            height: calc(100vh - 50px) !important;
+        }
+
+        /* Adjust the sidebar collapse/expand button to drop down too */
+        [data-testid="stSidebarCollapseButton"] {
+            top: 60px !important;
+            z-index: 100001;
+        }
+
+        /* Define the sticky top bar */
+        .unified-top-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 50px;
+            background-color: #1E1E1E; /* Match your app background theme */
+            color: #FFFFFF;
+            padding: 0px 20px;
+
+            /* High z-index ensures it caps over BOTH sidebar and main container smoothly */
+            z-index: 100000; 
+
+            border-bottom: 1px solid #333333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0px 2px 5px rgba(0,0,0,0.2);
+        }
+
+        /* Push main content down so it doesn't hide behind the top bar */
+        .block-container {
+            padding-top: 2rem !important;
+        }
+    </style>
+
+    <div class="unified-top-bar">
+        <span style="font-weight: bold; font-size: 1.1rem;">⚡ FIELD OPERATIONS DIGITAL ASSET MONITORING SYSTEM(FODAMS)</span>
+        <span style="font-size: 0.85rem; color: #00FF66; background: #2A2A2A; padding: 1px 5px; border-radius: 4px;">
+            Developer Mode
+        </span>
+    </div>
+    """
+)
+
+# 2. Main app content
 #system variable
 USERS_LIST=['WORKSHOP','ESP-KOC','PDI','BURGUN YARD','ABDALY FARM','DESALTER PROJECT','FIELD OP.REPAIR','JO-ESP',
             'MISHRIF','MOBILE','NEW GENERATOR','OFF-HIRE','READY','WSH-POWER']
