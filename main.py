@@ -86,14 +86,14 @@ def get_location_mappings():
         return pd.DataFrame()
 
 @st.cache_data(ttl=600)
-def get_full_dataframe_with_realations_with_relations():
+def get_full_dataframe_with_realations():
     try:
         response = supabase.table("GENSET ASSET").select("""
             *,
             LOCATION_MAPPING (
-                TRANSFER_STATUS,
                 CONTRACT_NO,
                 FIELD,
+                AREA,
                 LOCATION
             )
         """).execute()
@@ -101,9 +101,9 @@ def get_full_dataframe_with_realations_with_relations():
         flat_data = []
         for row in response.data:
             mapping = row.get("LOCATION_MAPPING") or {}
-            row["TRANSFER_STATUS"] = mapping.get("TRANSFER_STATUS", "N/A")
             row["CONTRACT_NO"] = mapping.get("CONTRACT_NO", "N/A")
             row["FIELD"] = mapping.get("FIELD", "N/A")
+            row["AREA"] = mapping.get("AREA", "N/A")
             row["LOCATION"] = mapping.get("LOCATION", "N/A")
             flat_data.append(row)
 
@@ -131,11 +131,12 @@ if "user_role" not in st.session_state:
     st.session_state.user_role = ["Guest",'developer']
 
 # --- GATEWAY AUTHENTICATION SHIELD ---
-if not st.session_state.authenticated:
+# --- GATEWAY AUTHENTICATION SHIELD ---
+if not st.session_state.get('authenticated', False):
     st.title("🔒 FODAMS Internal Gate")
     st.caption("Please sign in with your corporate credentials to access the digital supervisory system.")
 
-    with st.form("login_form"):
+    with st.form("login_form", clear_on_submit=False):
         email_input = st.text_input("Corporate Email Address")
         password_input = st.text_input("Password", type="password")
         submit_btn = st.form_submit_button("Authenticate Access")
@@ -143,57 +144,54 @@ if not st.session_state.authenticated:
         if submit_btn:
             if email_input and password_input:
                 try:
-                    # 1. STEP ONE: Handshake with Supabase internal auth engine
+                    # 1. Sign in the user first so Supabase issues a secure session token
                     auth_response = supabase.auth.sign_in_with_password({
                         "email": email_input,
                         "password": password_input
                     })
 
-                    # 2. STEP TWO: Extract the User UID from the successful response object
                     target_uid = auth_response.user.id
 
-                    # 3. STEP THREE: Execute the query against your backend database PROFILES registry table
+                    # 2. NOW query the profile table (RLS will now allow this because the user is authenticated!)
                     profile_query = supabase.table("PROFILES").select("role").eq("id", target_uid).execute()
 
-                    # 4. STEP FOUR: Process the data query array (Safe validation matching strings)
                     if profile_query.data and len(profile_query.data) > 0:
                         raw_role = profile_query.data[0].get("role", "Guest")
-                        # Normalize string formatting casing to title case ("Developer")
                         assigned_role = raw_role.title() if raw_role else "Guest"
                     else:
                         assigned_role = "Guest"
 
-                    # 5. STEP FIVE: Commit verified properties safely to state storage and refresh
+                    # 3. Save parameters safely to your session states
                     st.session_state.authenticated = True
-                    st.session_state.user_email = auth_response.user.email
+                    st.session_state.user_email = email_input
                     st.session_state.user_role = assigned_role
 
-                    st.success("🔑 Security clearance verified! Entering dashboard...")
+                    st.success(f"Welcome back! Authenticated as {assigned_role}")
                     st.rerun()
 
                 except Exception as e:
-                    st.error(f"❌ Access Denied: Identification rejected ({e})")
+                    st.error(f"❌ Authentication Failed: {e}")
             else:
-                st.warning("⚠️ Please provide both your corporate email and matching security key.")
+                st.warning("Please fill in both email and password fields.")
 
-    # Halt file execution here if session state evaluation remains unauthenticated
+    # Stop execution here if not logged in yet
     st.stop()
 # --- DYNAMIC NAVIGATION MENU MENU BUILDER ---
 all_menu_options = {
     "GENERAL ASSETS": {"icon": "diagram-3-fill",
-                       "roles": ["Developer", "manager", "Mechanical", "supervisor", "admin", "engineer"]},
+                       "roles": ["Developer", "Manager", "Mechanical", "Supervisor", "Admin", "Engineer"]},
     "ASSET_MANAGEMENT": {"icon": "boxes",
-                         "roles": ["Developer", "manager", "supervisor", "admin", "Mechanical", "engineer"]},
-    "WORKSHOP": {"icon": "tools", "roles": ["Developer", "manager", "Mechanical", "admin", "supervisor"]},
+                         "roles": ["Developer", "Manager", "Supervisor", "Admin", "Mechanical", "Engineer"]},
+    "WORKSHOP": {"icon": "tools", "roles": ["Developer", "Manager", "Mechanical", "Admin", "Supervisor"]},
     "MAINTENANCE": {"icon": "speedometer2",
-                    "roles": ["Developer", "manager", "supervisor", "admin", "Mechanical", "engineer"]},
+                    "roles": ["Developer", "Manager", "Supervisor", "Admin", "Mechanical", "Engineer"]},
     "PARTS AND PRODUCTS": {"icon": "gear-wide-connected",
-                           "roles": ["Developer", "manager", "supervisor", "Mechanical", "admin"]},
+                           "roles": ["Developer", "Manager", "Supervisor", "Mechanical", "Admin"]},
     "FIXED ASSETS": {"icon": "arrow-90deg-right",
-                     "roles": ["Developer", "manager", "supervisor", "Mechanical", "engineer"]},
+                     "roles": ["Developer", "Manager", "Supervisor", "Mechanical", "Engineer"]},
     "FLEET MANAGEMENT": {"icon": "car-front",
-                         "roles": ["Developer", "manager", "supervisor", "Mechanical", "engineer"]},
-    "LOCATION_MAPPING": {"icon": "sliders", "roles": ["Developer", "manager", "supervisor", "Mechanical"]},
+                         "roles": ["Developer", "Manager", "Supervisor", "Mechanical", "Engineer"]},
+    "LOCATION_MAPPING": {"icon": "sliders", "roles": ["Developer", "Manager", "Supervisor", "Mechanical"]},
 }
 
 user_role = st.session_state.get('user_role', 'Guest')
@@ -248,7 +246,7 @@ with st.sidebar:
 if selected == "ACCESS RESTRICTED":
     st.error("⚠️ Your user profile has not been assigned operational permissions yet.")
     st.warning(
-        "Please contact your database administrator to configure your organizational title in the backend 'PROFILES' registry table.")
+        "Please contact your database Administrator to configure your organizational title in the backend 'PROFILES' registry table.")
     st.stop()
 
 
@@ -405,34 +403,38 @@ elif selected == "ASSET_MANAGEMENT":
         except Exception as e:
             st.error(f"error fetching data {e}")
     with tab3:
-        if user_role in ['Developer', 'manager', 'supervisor', 'engineer', 'Mechanical']:
+        if user_role in ['Developer', 'Manager', 'Supervisor', 'Engineer', 'Mechanical']:
             st.write("ADD NEW ASSETS:")
             map_df = get_location_mappings()
 
             if not map_df.empty:
-                st.caption("🗺️ Route Selection Path (Updates dynamically)")
+                st.caption("🗺️ Route Selection Path (Updates dynamically: FIELD ➔ AREA ➔ LOCATION ➔ CONTACT_NO)")
 
                 # --- DYNAMIC ROUTING DROP-DOWNS (PLACED OUTSIDE THE FORM) ---
                 col_m1, col_m2, col_m3, col_m4 = st.columns(4)
 
                 with col_m1:
-                    status_options = sorted(map_df["TRANSFER_STATUS"].unique().tolist())
-                    transfer_status_val = st.selectbox("Select Transfer Status", options=status_options)
-                    filtered_by_status = map_df[map_df["TRANSFER_STATUS"] == transfer_status_val]
+                    field_options = sorted([str(x) for x in map_df["FIELD"].dropna().unique()])
+                    field_val = st.selectbox("1. Select Field", options=field_options)
+                    filtered_by_field = map_df[map_df["FIELD"] == field_val]
 
                 with col_m2:
-                    contract_options = sorted(filtered_by_status["CONTRACT_NO"].unique().tolist())
-                    contract = st.selectbox("CONTRACT", options=contract_options)
-                    filtered_by_contract = filtered_by_status[filtered_by_status["CONTRACT_NO"] == contract]
+                    # Defensive guard check for valid column name case in dataframe dictionary mapping
+                    area_col = "AREA" if "AREA" in filtered_by_field.columns else "area"
+                    area_options = sorted([str(x) for x in filtered_by_field[
+                        area_col].dropna().unique()]) if area_col in filtered_by_field.columns else []
+                    area_val = st.selectbox("2. Select Area", options=area_options)
+                    filtered_by_area = filtered_by_field[
+                        filtered_by_field[area_col] == area_val] if area_options else filtered_by_field
 
                 with col_m3:
-                    field_options = sorted(filtered_by_contract["FIELD"].unique().tolist())
-                    field = st.selectbox("FIELD:", options=field_options)
-                    filtered_by_field = filtered_by_contract[filtered_by_contract["FIELD"] == field]
+                    location_options = sorted([str(x) for x in filtered_by_area["LOCATION"].dropna().unique()])
+                    location_val = st.selectbox("3. Select Location", options=location_options)
+                    filtered_by_location = filtered_by_area[filtered_by_area["LOCATION"] == location_val]
 
                 with col_m4:
-                    location_options = sorted(filtered_by_field["LOCATION"].unique().tolist())
-                    location = st.selectbox("LOCATION:", options=location_options)
+                    contract_options = sorted([str(x) for x in filtered_by_location["CONTRACT_NO"].dropna().unique()])
+                    contract_val = st.selectbox("4. Select Contract No", options=contract_options)
 
                 # --- FORM INITIALIZATION FOR STATIC METRICS ---
                 with st.form("add_new_asset", clear_on_submit=True):
@@ -454,6 +456,7 @@ elif selected == "ASSET_MANAGEMENT":
                         run_hrs = st.number_input("RUN_Hrs", min_value=0, step=1)
                         area = st.selectbox("AREA", options=Area_LIST)
                         appr_kva = st.number_input("APPR_KVA", min_value=0, step=1)
+                        # 🛑 TRANSFER_STATUS selectbox has been completely removed from here
 
                     with col4:
                         user = st.selectbox("USER", options=USERS_LIST)
@@ -467,15 +470,15 @@ elif selected == "ASSET_MANAGEMENT":
                     if submit:
                         # Find the matching backend ID for your chained combo selection
                         matching_rows = map_df[
-                            (map_df["TRANSFER_STATUS"] == transfer_status_val) &
-                            (map_df["CONTRACT_NO"] == contract) &
-                            (map_df["FIELD"] == field) &
-                            (map_df["LOCATION"] == location)
-                            ]
-
+                            (map_df["FIELD"] == field_val) &
+                            (map_df["AREA"] == area_val) &
+                            (map_df["LOCATION"] == location_val) &
+                            (map_df["CONTRACT_NO"] == contract_val)
+                        ]
                         if not matching_rows.empty:
                             chosen_mapping_id = int(matching_rows.iloc[0]["id"])
 
+                            # 🛠️ Clean payload reflecting the pure 4-tier structural mapping update
                             new_data = {
                                 "G-CODE": g_code,
                                 "SERIAL_NO": serial_no,
@@ -483,7 +486,6 @@ elif selected == "ASSET_MANAGEMENT":
                                 "TYPE": asset_type,
                                 "KVA": kva,
                                 "user_id": user_id,
-                                "TRANSFER_STATUS": transfer_status_val,
                                 "location_mapping_id": chosen_mapping_id,
                                 "MANUF_YR": str(manuf_yr),
                                 "SERVICE_YR_KOC": str(service_yr_koc),
@@ -501,22 +503,21 @@ elif selected == "ASSET_MANAGEMENT":
                             try:
                                 supabase.table(TABLE_NAME).insert(new_data).execute()
                                 st.cache_data.clear()
-                                st.success("✅ Asset added with TRANSFER_STATUS and relational tracking ID!")
+                                st.success("✅ Asset added successfully with relational route parameters mapping!")
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"❌ Error adding asset: {e}")
                         else:
-                            st.error("❌ The chosen path is valid in the UI but could not match a row in your backend DB configuration.")
-            else:
-                st.error("⚠️ Master mapping rules could not be parsed from database.")
-        else:
-            st.warning("Permission Denied: Authorized roles only.")
+                            st.error(
+                                "❌ The chosen path is valid in the UI but could not match a row in your backend DB configuration.")
+                    else:
+                        st.warning("Permission Denied: Authorized roles only.")
 
     with tab4:
-        # ----- PLACE THIS ENTIRE BLOCK DIRECTLY INSIDE TAB 4 -----
-        if user_role in ['Developer', 'manager', 'supervisor', 'engineer', 'Mechanical']:
+        # ----- PLACE THIS ENTIRE REFACTORED BLOCK DIRECTLY INSIDE TAB 4 -----
+        if user_role in ['Developer', 'Manager', 'Supervisor', 'Engineer', 'Mechanical']:
             try:
-                df = get_full_dataframe_with_realations_with_relations()
+                df = get_full_dataframe_with_realations()
                 if not df.empty:
                     # 1. Get the list of codes for the dropdown selection
                     g_code_options = df["G-CODE"].dropna().tolist()
@@ -530,63 +531,58 @@ elif selected == "ASSET_MANAGEMENT":
                     map_df = get_location_mappings()
                     chosen_mapping_id = None
 
-                    u_transfer_status = asset_data.get("TRANSFER_STATUS", "")
+                    # 🛑 Removed u_transfer_status from here
                     u_contract = asset_data.get("CONTRACT_NO", "")
                     u_field = asset_data.get("FIELD", "")
                     u_location = asset_data.get("LOCATION", "")
 
                     if not map_df.empty:
-                        st.caption("🗺️ Route Modification Path (Changes update dynamically)")
+                        st.caption("🗺️ Route Modification Path (FIELD ➔ AREA ➔ LOCATION ➔ CONTACT_NO)")
                         col_m1, col_m2, col_m3, col_m4 = st.columns(4)
 
                         # Extract active column configurations safely for dropdown state defaults
-                        current_status = str(asset_data.get("TRANSFER_STATUS", ""))
-                        current_contract = str(asset_data.get("CONTRACT_NO", ""))
                         current_field = str(asset_data.get("FIELD", ""))
+                        current_area = str(asset_data.get("AREA", ""))
                         current_location = str(asset_data.get("LOCATION", ""))
+                        current_contract = str(asset_data.get("CONTRACT_NO", ""))
 
                         with col_m1:
-                            status_options = sorted(map_df["TRANSFER_STATUS"].unique().tolist())
-                            status_index = status_options.index(
-                                current_status) if current_status in status_options else 0
-                            u_transfer_status = st.selectbox("TRANSFER_STATUS", options=status_options,
-                                                             index=status_index)
-                            filtered_by_status = map_df[map_df["TRANSFER_STATUS"] == u_transfer_status]
+                            field_options = sorted([str(x) for x in map_df["FIELD"].dropna().unique()])
+                            field_idx = field_options.index(current_field) if current_field in field_options else 0
+                            u_field = st.selectbox("1. FIELD", options=field_options, index=field_idx)
+                            filtered_by_field = map_df[map_df["FIELD"] == u_field]
 
                         with col_m2:
-                            contract_options = sorted(filtered_by_status["CONTRACT_NO"].unique().tolist())
-                            contract_index = contract_options.index(
-                                current_contract) if current_contract in contract_options else 0
-                            u_contract = st.selectbox("CONTRACT_NO", options=contract_options, index=contract_index)
-                            filtered_by_contract = filtered_by_status[
-                                filtered_by_status["CONTRACT_NO"] == u_contract]
+                            area_col = "AREA" if "AREA" in filtered_by_field.columns else "area"
+                            area_options = sorted([str(x) for x in filtered_by_field[area_col].dropna().unique()]) if area_col in filtered_by_field.columns else []
+                            area_idx = area_options.index(current_area) if current_area in area_options else 0
+                            u_area_val = st.selectbox("2. AREA", options=area_options, index=area_idx)
+                            filtered_by_area = filtered_by_field[filtered_by_field[area_col] == u_area_val] if area_options else filtered_by_field
 
                         with col_m3:
-                            field_options = sorted(filtered_by_contract["FIELD"].unique().tolist())
-                            field_index = field_options.index(
-                                current_field) if current_field in field_options else 0
-                            u_field = st.selectbox("FIELD", options=field_options, index=field_index)
-                            filtered_by_field = filtered_by_contract[filtered_by_contract["FIELD"] == u_field]
+                            location_options = sorted([str(x) for x in filtered_by_area["LOCATION"].dropna().unique()])
+                            location_idx = location_options.index(current_location) if current_location in location_options else 0
+                            u_location = st.selectbox("3. LOCATION", options=location_options, index=location_idx)
+                            filtered_by_location = filtered_by_area[filtered_by_area["LOCATION"] == u_location]
 
                         with col_m4:
-                            location_options = sorted(filtered_by_field["LOCATION"].unique().tolist())
-                            location_index = location_options.index(
-                                current_location) if current_location in location_options else 0
-                            u_location = st.selectbox("LOCATION", options=location_options, index=location_index)
+                            contract_options = sorted([str(x) for x in filtered_by_location["CONTRACT_NO"].dropna().unique()])
+                            contract_idx = contract_options.index(current_contract) if current_contract in contract_options else 0
+                            u_contract = st.selectbox("4. CONTRACT_NO", options=contract_options, index=contract_idx)
 
                         # Pre-calculate matching ID from the dynamic path
                         matching_rows = map_df[
-                            (map_df["TRANSFER_STATUS"] == u_transfer_status) &
-                            (map_df["CONTRACT_NO"] == u_contract) &
                             (map_df["FIELD"] == u_field) &
-                            (map_df["LOCATION"] == u_location)
+                            (map_df["AREA"] == u_area_val) &
+                            (map_df["LOCATION"] == u_location) &
+                            (map_df["CONTRACT_NO"] == u_contract)
                             ]
                         if not matching_rows.empty:
                             chosen_mapping_id = int(matching_rows.iloc[0]["id"])
                     else:
                         st.error("⚠️ Master mapping rules could not be parsed from database.")
 
-                    # 3. Form Initialization for specifications input
+                        # 3. Form Initialization for specifications input
                     with st.form("update_asset_form"):
                         st.caption(f"🔧 UPDATING ASSET SPECIFICATIONS FOR: **{select_gcode}**")
 
@@ -597,8 +593,7 @@ elif selected == "ASSET_MANAGEMENT":
                             u_serial_no = st.text_input("SERIAL_NO", value=str(asset_data.get("SERIAL_NO", "")))
                             current_model = str(asset_data.get("MODEL", ""))
                             temp_model = MODEL_LIST if current_model in MODEL_LIST else MODEL_LIST + [current_model]
-                            u_model = st.selectbox("MODEL", options=temp_model,
-                                                   index=temp_model.index(current_model))
+                            u_model = st.selectbox("MODEL", options=temp_model, index=temp_model.index(current_model))
 
                             current_type = str(asset_data.get("TYPE", ""))
                             temp_type = TYPE_LIST if current_type in TYPE_LIST else TYPE_LIST + [current_type]
@@ -627,6 +622,7 @@ elif selected == "ASSET_MANAGEMENT":
                             current_user = str(asset_data.get("USER", ""))
                             user_index = USERS_LIST.index(current_user) if current_user in USERS_LIST else 0
                             u_user = st.selectbox("USER", options=USERS_LIST, index=user_index)
+                            # 🛑 TRANSFER_STATUS selection box has been permanently removed from here
 
                         with col4:
                             u_kva = st.number_input("KVA", value=int(asset_data.get("KVA", 0)))
@@ -636,7 +632,6 @@ elif selected == "ASSET_MANAGEMENT":
 
                         # Form boundary submission button
                         submit_button = st.form_submit_button("SUBMIT CHANGES")
-                        # 5. Database execution management payload handling
                         if submit_button:
                             if chosen_mapping_id is not None:
                                 updated_data = {
@@ -645,10 +640,9 @@ elif selected == "ASSET_MANAGEMENT":
                                     "TYPE": u_type,
                                     "KVA": u_kva,
                                     "user_id": u_user_id,
-                                    "TRANSFER_STATUS": u_transfer_status,
+                                    # 🛑 Removed "TRANSFER_STATUS" mapping payload key completely
                                     "location_mapping_id": chosen_mapping_id,
-                                    "MANUF_YR": u_manuf_yr.isoformat() if hasattr(u_manuf_yr, "isoformat") else str(
-                                        u_manuf_yr),
+                                    "MANUF_YR": u_manuf_yr.isoformat() if hasattr(u_manuf_yr, "isoformat") else str(u_manuf_yr),
                                     "SERVICE_YR_KOC": u_service_yr_koc.isoformat() if hasattr(u_service_yr_koc,
                                                                                               "isoformat") else str(
                                         u_service_yr_koc),
@@ -658,20 +652,15 @@ elif selected == "ASSET_MANAGEMENT":
                                     "USER": u_user,
                                     "CREW": u_crew,
                                     "MOVED_FROM": u_moved_from,
-                                    "MOVEMENT_DATE": u_movement_yr.isoformat() if hasattr(u_movement_yr,
-                                                                                          "isoformat") else str(
+                                    "MOVEMENT_DATE": u_movement_yr.isoformat() if hasattr(u_movement_yr, "isoformat") else str(
                                         u_movement_yr),
                                     "REASON": u_reason,
-
-                                    # 🔥 CHANGED: Captures the active email address signature for audit validation
-                                    "updated_by": st.session_state.get('user_email',
-                                                                       st.session_state.get('user_name', 'SYSTEM_USER'))
+                                    "updated_by": st.session_state.get('user_email', 'SYSTEM_USER')
                                 }
 
                                 try:
                                     with st.spinner("Pushing record modifications..."):
-                                        supabase.table(TABLE_NAME).update(updated_data).eq("G-CODE",
-                                                                                           select_gcode).execute()
+                                        supabase.table(TABLE_NAME).update(updated_data).eq("G-CODE", select_gcode).execute()
                                         st.cache_data.clear()
                                         st.success(f"🎉 Asset {select_gcode} altered successfully!")
                                         st.rerun()
@@ -680,17 +669,19 @@ elif selected == "ASSET_MANAGEMENT":
                             else:
                                 st.error(
                                     "❌ Could not find a valid matching entry ID inside your master location mapping tables. Check your route options.")
-                else:
-                    st.warning("No assets available in the current database view.")
+                        else:
+                            st.warning("No assets available in the current database view.")
             except Exception as e:
                 st.error(f"Operational form execution crashed: {e}")
+        else:
+            st.warning("Permission Denied: Authorized roles only.")
 
 
 
 
     with tab5:
         st.subheader("📜 System Operations Audit History Logs")
-        if st.session_state.get('user_role') in ['Developer', 'manager', 'admin']:
+        if st.session_state.get('user_role') in ['Developer', 'Manager', 'Admin']:
             try:
                 # 1. Fetch raw logs from Supabase
                 logs_response = supabase.table("ASSET_AUDIT_LOG").select("*").order("changed_at", desc=True).limit(
@@ -745,9 +736,9 @@ elif selected == "ASSET_MANAGEMENT":
             except Exception as e:
                 st.error(f"Failed to process log layout: {e}")
         else:
-            st.warning("Access Denied: Only platform administrators can audit operational changes.")
+            st.warning("Access Denied: Only platform Administrators can audit operational changes.")
         # Verify user permissions
-        if st.session_state.get('user_role') in ['Developer', 'manager', 'admin']:
+        if st.session_state.get('user_role') in ['Developer', 'Manager', 'Admin']:
 
             # --- 1. MANUAL DELETION / PURGE CONTROL PANEL ---
             with st.expander("🚨 DELETE LOGS :"):
@@ -854,7 +845,7 @@ elif selected == "ASSET_MANAGEMENT":
                 st.error(f"Failed to process log layout view structures: {e}")
 
         else:
-            st.warning("Access Denied: Only platform administrators can inspect or alter operations audit logs.")
+            st.warning("Access Denied: Only platform Administrators can inspect or alter operations audit logs.")
 
 
 
@@ -936,8 +927,8 @@ elif selected == "MAINTENANCE":
     st.info("🕒 **PREDICTIVE MAINTENANCE & DUE DATES FORECASTING**")
     df_assets = get_full_dataframe_with_realations()
 
-    if user_role.lower() in ['developer', 'manager', 'supervisor', 'engineer',
-                             'mechanical'] and not df_assets.empty:
+    if user_role.lower() in ['developer', 'Manager', 'Supervisor', 'Engineer',
+                             'Mechanical'] and not df_assets.empty:
 
         # --- 1. DROPDOWN SEARCH & COUNTERS ---
         asset_list = df_assets['G-CODE'].tolist()
@@ -980,7 +971,7 @@ elif selected == "MAINTENANCE":
                         st.error(f"Error reading records logs: {e}")
 
             with col02:
-                if user_role in ['Developer', 'MANAGER','supervisor','TECHNICIAN']:
+                if user_role in ['Developer', 'Manager','Supervisor','TECHNICIAN']:
                     with st.expander("UPDATE SERVICE FORM :", expanded=True):
                         with st.form("service_log_form", clear_on_submit=True):
                             col1, col2 = st.columns(2)
@@ -1201,92 +1192,69 @@ elif selected == "FLEET MANAGEMENT":
 
 
 elif selected == "LOCATION_MAPPING":
-    st.info("****WELCOME TO SAFETY_UNIT****")
-    # ----enter code with access permission-----
-    if user_role in ['Developer', 'manager', 'admin']:
-        st.write("⚙️ System Database Utilities")
-        with st.form("admin_route_mapping_tool", clear_on_submit=True):
+    st.info("🛠️ **MASTER ROUTING UTILITIES AND INFRASTRUCTURE MANAGEMENT**")
 
-            new_status = st.selectbox("Status Context", options=TRANSFER_STATUS)
-            new_contract = st.selectbox("Assign Contract", options=CONTRACT_OPTIONS)
-            new_field = st.selectbox("Assign Field", options=FIELD_LIST)
-            new_loc = st.text_input("Add location to selected field:").strip().upper()
+    if user_role in ['Developer', 'Manager', 'Admin']:
+        st.write("⚙️ Authorize New Core Location Path Setup")
+
+        # --- 1. THE DATA SUBMISSION FORM BLOCK ---
+        with st.form("Admin_route_mapping_tool", clear_on_submit=True):
+            new_field = st.selectbox("Assign Field *",
+                                     options=FIELD_LIST)
+            new_area = st.text_input("Assign Area *").strip().upper()
+            new_loc = st.text_input("Assign Location Description *").strip().upper()
+            new_contract = st.text_input("Assign Corporate Contract No *").strip().upper()
 
             submit_route = st.form_submit_button("Authorize Combined Route Entry")
-            if submit_route and new_loc:
-                try:
-                    route_payload = {
-                        "TRANSFER_STATUS": new_status,
-                        "CONTRACT_NO": new_contract,
-                        "FIELD": new_field,
-                        "LOCATION": new_loc
-                    }
-                    supabase.table("LOCATION_MAPPING").insert(route_payload).execute()
-                    st.cache_data.clear()
-                    st.toast("✅ Master routes configuration updated successfully!", icon="🔥")
-                    st.rerun()
-                except Exception as e:
-                    st.error("Failed to map combo path. Database constraints rejected insertion.")
 
-        # --- Place this inside your System Database Utilities expander block ---
-        st.markdown("---")
-        st.caption("Manage Authorized Routings")
-
-        # Read current live routing configurations
-        current_maps = get_location_mappings()
-
-        if not current_maps.empty:
-            if user_role in ['Developer', 'manager', 'admin','Mechanical']:
-                for idx, row in current_maps.iterrows():
-                    # Display a scannable breadcrumb representation of the path configuration
-                    path_label = f"📍 {row['TRANSFER_STATUS']} ➔ {row['CONTRACT_NO']} ➔ {row['FIELD']} ➔ {row['LOCATION']}"
-
-                    col_txt, col_btn = st.columns([4, 1])
-                    with col_txt:
-                        st.caption(path_label)
-
-                        with col_btn:
-                            # Render a unique delete button key tied directly to the row identity integer
-                            if st.button("🗑️", key=f"del_map_{row['id']}"):
-                                success, message = delete_location_mapping(int(row['id']))
-                                if success:
-                                    st.toast(message, icon="🗑️")
-                                    st.rerun()
-                                else:
-                                    st.error(message)
+            if submit_route:
+                if not new_field or not new_area or not new_loc or not new_contract:
+                    st.error("❌ Submission Rejected: All fields marked with an asterisk (*) are strictly required.")
                 else:
-                    st.info("No mapped paths configured in database tables yet.")
+                    try:
+                        route_payload = {
+                            "FIELD": new_field,
+                            "AREA": new_area,
+                            "LOCATION": new_loc,
+                            "CONTRACT_NO": new_contract
+                        }
+                        supabase.table("LOCATION_MAPPING").insert(route_payload).execute()
+                        st.cache_data.clear()
+                        st.toast("✅ Master hierarchy route entry logged successfully!", icon="🔥")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Failed to map combo path: {e}")
 
-    # Place this inside an administrative view/tab
-    if user_role in ['Developer', 'manager']:
-        st.markdown("### 🗑️ Remove Master Location Mapping")
+        # --- 2. THE VISUAL DISPLAY BLOCK (💥 MOVED ENTIRELY OUTSIDE THE FORM WITH LEFT INDENTATION) ---
+        st.markdown("---")
+        st.caption("Active Routing Infrastructure Breadcrumbs")
 
-        map_df = get_location_mappings()
-        if not map_df.empty:
-            map_df['display_path'] = map_df['TRANSFER_STATUS'] + " ➔ " + map_df['CONTRACT_NO'] + " ➔ " + map_df[
-                'LOCATION']
+        current_maps = get_location_mappings()
+        if not current_maps.empty:
+            # 🔧 Safely generate string paths mapping (fixes the previous TypeError)
+            current_maps['display_path'] = (
+                    "📍 Field: " + current_maps['FIELD'].astype(str) +
+                    " ➔ Area: " + current_maps['AREA'].astype(str) +
+                    " ➔ Location: " + current_maps['LOCATION'].astype(str) +
+                    " ➔ Contract: " + current_maps['CONTRACT_NO'].astype(str)
+            )
 
-            target_mapping = st.selectbox("Select Target Route to Permanently Delete:",
-                                          options=map_df['display_path'].tolist())
-            selected_row = map_df[map_df['display_path'] == target_mapping].iloc[0]
-            target_id = int(selected_row['id'])
+            for idx, row in current_maps.iterrows():
+                path_label = row['display_path']
 
-            if st.button("EXECUTE DELETION", type="primary"):
-                try:
-                    # Capture the identity string of the administrator performing the action
-                    current_operator = st.session_state.get('user_email', st.session_state.get('user_name', 'UNKNOWN'))
+                col_txt, col_btn = st.columns([5, 1])
+                with col_txt:
+                    st.caption(path_label)
+                with col_btn:
+                    # 🔥 FIX: Added cross-reference index '_idx' to guarantee a unique key name!
+                    if st.button("🗑️", key=f"del_map_{row['id']}_{idx}"):
+                        success, message = delete_location_mapping(int(row['id']))
+                        if success:
+                            st.toast(message, icon="🗑️")
+                            st.rerun()
+                        else:
+                            st.error(message)
+                    else:
+                        st.info("No mapped paths configured in database tables yet.")
 
-                    # Step A: Safe Cleanup - Update asset table rows AND stamp who did it!
-                    supabase.table(TABLE_NAME).update({
-                        "location_mapping_id": None,
-                        "updated_by": current_operator  # 👈 Logs the person deleting this route context
-                    }).eq("location_mapping_id", target_id).execute()
-
-                    # Step B: Remove the configuration row from your master rules table
-                    supabase.table("LOCATION_MAPPING").delete().eq("id", target_id).execute()
-
-                    st.cache_data.clear()
-                    st.success(f"💥 Location mapping removed. Structural changes logged by {current_operator}!")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"❌ Deletion script rejected by database: {e}")
+    
