@@ -1,68 +1,413 @@
-/* 1. Main Background and Container Padding */
-.stApp {
-    background-color: #f2f2f2;
+/* 1. Global Viewport Reset & Alignment Setup */
+header[data-testid="stHeader"] {
+    background-color: transparent !important;
+    height: 10rem;
+    z-index: 99;
 }
-
 .block-container {
-    padding-top: 0.05rem;
-    max-width: 100%;
+    padding-top: 0rem !important;
+    padding-bottom: 2rem !important;
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
 }
 
-/* 2. Customizing Metrics (The KPI Cards) */
-[data-testid="stMetric"] {
-    background-color: #cce6ff;
-    border: 1px solid #e0e0e0;
-    padding: 2px;
-    border-radius: 10px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    transition: transform 0.2s ease;
+/* 2. Fixed Top Branding Navigation Banner */
+.custom-topbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 55px;
+    background: linear-gradient(90deg, #1e3c72 0%, #2a5298 100%);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4rem;
+    z-index: 9999;
+    box-shadow: 0px 3px 10px rgba(0,0,0,0.15);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+.topbar-brand {
+    font-size: 1.15rem;
+    font-weight: 600;
+    letter-spacing: 1.2px;
+    text-align: center;
 }
 
-[data-testid="stMetric"]:hover {
-    transform: translateY(-5px);
-    border-color: #007bff;
+/* 3. Modern Sidebar Overhaul & Clean Radio Button Navigation Tabs */
+section[data-testid="stSidebar"] {
+    background-color: #4468bb !important;
+    border-right: 1px solid #1e293b !important;
 }
 
-/* 3. Styling the Navigation Sidebar */
-[data-testid="stSidebar"] {
-    background-image: #007bff;
-    border-right: 1px solid #007bff;
+/* Sidebar Profile Context (The identity & role text blocks) */
+section[data-testid="stSidebar"] .stMarkdown p {
+    color: #e2e8f0 !important;
 }
 
-/* 4. Form Styling (Add/Update Asset Sections) */
-[data-testid="stForm"] {
-    border: none;
-    background-color: rgb(133 151 186);
-    padding: 2rem;
-    border-radius: 15px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+/* Sub-captions and secondary indicator metadata tags */
+section[data-testid="stSidebar"] caption,
+section[data-testid="stSidebar"] .stMarkdown small {
+    color: #94a3b8 !important;
 }
 
-/* 5. Custom Button Styling */
-div.stButton > button:first-child {
-    background-color: #6eb690;
-    color: white;
-    border-radius: 5px;
-    width: 100%;
-    border: none;
-    font-weight: bold;
-    padding: 0.5rem;
+/* =====================================================================
+   RADIO MODULE INTERACTION NAVIGATION (Choose your viewport module)
+   ===================================================================== */
+/* Adjusts the container holding your operational radio selectors */
+section[data-testid="stSidebar"] div[data-testid="stWidgetLabel"] p {
+    color: #cbd5e1 !important;
+    font-weight: 600 !important;
+    text-transform: uppercase;
+    font-size: 0.8rem !important;
+    letter-spacing: 0.05em;
+    margin-bottom: 12px !important;
+}
+/* =====================================================================
+   MATCHING SIDEBAR NAVIGATION MODULE OPTIONS TO BOTTOM UTILITY BUTTONS
+   ===================================================================== */
+
+/* 1. Remove the default streamlit round radio selection circles completely */
+section[data-testid="stSidebar"] div[data-testid="stRadio"] [data-fieldname="stRadioCircle"] {
+    display: none !important;
 }
 
-div.stButton > button:hover {
-    background-color: #bd0e1d;
-    color: white;
-    border: none;
+/* 2. Style each option container box to match your exact bottom buttons layout */
+section[data-testid="stSidebar"] div[data-testid="stRadio"] label {
+    background-color: #1e293b !important;   /* Matches dark gray button background */
+    color: #f1f5f9 !important;               /* Light contrast readable text */
+    border: 1px solid #334155 !important;    /* Clean integrated gray border trim */
+    border-radius: 6px !important;           /* Identical button roundness corner curve */
+
+    width: 100% !important;                  /* Forces edge-to-edge layout unity */
+    max-width: 100% !important;
+    display: block !important;               /* Standard button block footprint formatting */
+    text-align: center !important;           /* Perfectly centers text like the bottom items */
+
+    padding: 0.5rem 1rem !important;         /* Matches identical button spacing values */
+    margin-bottom: 10px !important;          /* Consistent vertical gaps between items */
+    cursor: pointer !important;
+    box-sizing: border-box !important;
+    box-shadow: none !important;
+    transition: all 0.15s ease-in-out !important;
 }
 
-/* 6. Table/Dataframe Styling */
-[data-testid="stDataFrame"] {
-    border: 1px solid #4da6ff;
-    border-radius: 15px;
+/* 3. Shift the internal text component block alignment to the absolute center */
+section[data-testid="stSidebar"] div[data-testid="stRadio"] label div[data-testid="stMarkdownContainer"] p {
+    color: #f1f5f9 !important;
+    font-size: 0.9rem !important;
+    font-weight: 600 !important;
+    text-align: center !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
 }
 
-/* 7. Success/Info/Error box styling */
-.stAlert {
-    border-radius: 10px;
-    border: none;
+/* 4. HOVER STATE: Highlight a choice row when an operator hovers over it */
+section[data-testid="stSidebar"] div[data-testid="stRadio"] label:hover {
+    background-color: #334155 !important;    /* Slightly lighter gray on mouse over */
+    border-color: #475569 !important;
+    color: #ffffff !important;
+}
+section[data-testid="stSidebar"] div[data-testid="stRadio"] label:hover p {
+    color: #ffffff !important;
+}
+
+/* 5. ACTIVE/CHECKED STATE: The selected module turns into your branding navy blue */
+section[data-testid="stSidebar"] div[data-testid="stRadio"] input[checked] + div label {
+    background-color: #1e3a8a !important;   /* Matches main header branding navy blue! */
+    border-color: #2563eb !important;        /* Vivid blue bounding active accent edge */
+    color: #ffffff !important;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2) !important; /* Soft active engagement ring glow */
+}
+section[data-testid="stSidebar"] div[data-testid="stRadio"] input[checked] + div label p {
+    color: #ffffff !important;
+    font-weight: 700 !important;
+}
+
+/* =====================================================================
+   SIDEBAR SYSTEM UTILITY ACTION BUTTONS (Cache Engine / Disconnect)
+   ===================================================================== */
+section[data-testid="stSidebar"] button {
+    background-color: #1e293b !important; /* Dark integrated slate grey button block */
+    color: #f1f5f9 !important;
+    border: 1px solid #334155 !important;
+    border-radius: 6px !important;
+    transition: all 0.15s ease-in-out !important;
+    width: 100% !important;
+}
+
+/* Hover changes for utility buttons */
+section[data-testid="stSidebar"] button:hover {
+    background-color: #334155 !important;
+    border-color: #475569 !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* 4. Polished Input Fields and Control Containers */
+div[data-testid="stForm"] {
+    background-color: #f8fafc !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 8px !important;
+    padding: 24px !important;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.06) !important;
+}
+
+/* Header typography inside the form container */
+div[data-testid="stForm"] h5 {
+    color: #0f172a !important;
+    font-weight: 600 !important;
+    letter-spacing: -0.01em;
+    margin-bottom: 16px !important;
+}
+
+/* =====================================================================
+   INPUT FIELDS & DROPDOWNS PROFILE (Text, Select, Dates)
+   ===================================================================== */
+div[data-testid="stForm"] input,
+div[data-testid="stForm"] select,
+div[data-testid="stForm"] div[role="combobox"] {
+    background-color: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #0f172a !important;
+    border-radius: 6px !important;
+    transition: all 0.2s ease-in-out !important;
+}
+
+/* The Active Focus State Ring */
+div[data-testid="stForm"] input:focus,
+div[data-testid="stForm"] select:focus {
+    border-color: #2563eb !important;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
+}
+
+/* Field Input Labels text adjustment */
+div[data-testid="stForm"] label p {
+    color: #334155 !important;
+    font-weight: 500 !important;
+    font-size: 0.875rem !important;
+}
+
+/* =====================================================================
+   FORM SUBMIT SUBMISSION BUTTON accent SPECIFICATION
+   ===================================================================== */
+div[data-testid="stForm"] button[data-testid="stFormSubmitButton"] {
+    background-color: #1e3a8a !important; /* Matches topbar branding blue */
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 6px !important;
+    font-weight: 600 !important;
+    padding: 0.5rem 1rem !important;
+    transition: background-color 0.15s ease-in-out !important;
+}
+
+/* Hover state interaction animation */
+div[data-testid="stForm"] button[data-testid="stFormSubmitButton"]:hover {
+    background-color: #1d4ed8 !important; /* Shifts slightly brighter on mouse over */
+    cursor: pointer !important;
+}
+
+/* 5. Clean Metrics Card Badges UI Layout */
+div[data-testid="stMetricBorder"] {
+    background-color: #ffffff !important;
+    border: 1px solid #e9ecef !important;
+    border-radius: 10px !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02) !important;
+    padding: 12px !important;
+    transition: transform 0.15s ease;
+}
+div[data-testid="stMetricBorder"]:hover {
+    transform: translateY(-2px);
+    border-color: #972b2b !important;
+}
+
+/* 6. Form Submission Primary Action Buttons UI */
+button[kind="formSubmit"] {
+    background-color: #228be6 !important;
+    color: white !important;
+    border: none !important;
+    padding: 0.5rem 2rem !important;
+    font-weight: 600 !important;
+    border-radius: 8px !important;
+    transition: all 0.2s ease !important;
+}
+button[kind="formSubmit"]:hover {
+    background-color: #1c7ed6 !important;
+    box-shadow: 0 4px 12px rgba(28, 126, 214, 0.25) !important;
+}
+
+/* 7. Read-only / Disabled Element Input States */
+input:disabled, select:disabled, textarea:disabled {
+    background-color: #f8f9fa !important;
+    color: #adb5bd !important;
+    border-color: #e9ecef !important;
+    cursor: not-allowed !important;
+}
+/* =====================================================================
+   INTERACTIVE, LIVE SCADA METRIC CARDS CONFIGURATION
+   ===================================================================== */
+/* 1. Base Container Footprint Block with smooth animation physics */
+div[data-testid="stMetric"] {
+    background-color: #f8fafc !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 20px !important;
+    padding: 16px 20px !important;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05) !important;
+
+    /* Smooth transition transition handling for layout attributes */
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    position: relative !important;
+    overflow: hidden !important;
+    cursor: pointer !important;
+}
+
+/* 2. HOVER INTERACTION ANIMATION EFFECT */
+div[data-testid="stMetric"]:hover {
+    background-color: #ffffff !important;         /* Card brightens up slightly */
+    border-color: #cbd5e1 !important;             /* Bounding border tightens contrast */
+    transform: translateY(-4px) !important;        /* Card physically floats upwards cleanly */
+    box-shadow: 0 10px 15px -3px rgba(15, 23, 42, 0.08),
+                0 4px 6px -4px rgba(15, 23, 42, 0.08) !important; /* Casts a soft ambient drop shadow */
+}
+
+/* 3. Metric Sub-Header Target Title (e.g., ESP-KOC) */
+div[data-testid="stMetricLabel"] p {
+    color: #475569 !important;
+    font-size: 0.8rem !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+}
+
+/* 4. Core Counter Numeric Value Metric (e.g., 2, 0, 1) */
+div[data-testid="stMetricValue"] div {
+    color: #0f172a !important;
+    font-size: 2.25rem !important;
+    font-weight: 700 !important;
+    line-height: 1.1 !important;
+    transition: color 0.2s ease !important;
+}
+
+/* Highlight the core metric number slightly when hovering over the card */
+div[data-testid="stMetric"]:hover div[data-testid="stMetricValue"] div {
+    color: #1e3a8a !important; /* Text color shifts to your signature navy blue */
+}
+
+/* =====================================================================
+   LIVE TELEMETRY PULSE DOT BADGE ACCENT
+   ===================================================================== */
+/* Generates an automatic pulsing indicator circle on every metric panel header */
+div[data-testid="stMetric"]::before {
+    content: '';
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 7px;
+    height: 7px;
+    background-color: #10b981 !important; /* Bright operations green */
+    border-radius: 50% !important;
+    animation: livePulseGlow 1.8s infinite ease-in-out;
+}
+
+/* Pulsing heart-rate glow animation loop keyframes */
+@keyframes livePulseGlow {
+    0% {
+        transform: scale(0.8);
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+    }
+    70% {
+        transform: scale(1.1);
+        box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+    }
+    100% {
+        transform: scale(0.8);
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    }
+}
+
+/* =====================================================================
+   DIRECTIONAL STATUS BADGES
+   ===================================================================== */
+div[data-testid="stMetricDelta"] {
+    background-color: #e0f2fe !important;
+    border-radius: 4px !important;
+    padding: 2px 8px !important;
+    width: fit-content !important;
+    margin-top: 8px !important;
+}
+
+div[data-testid="stMetricDelta"] div {
+    font-size: 0.8rem !important;
+    font-weight: 600 !important;
+    color: #0369a1 !important;
+}
+/* =====================================================================
+   CUSTOM DESIGNED FORMAT FOR DATAFRAMES (st.dataframe)
+   ===================================================================== */
+/* 1. Target the core scroll container for the grid layout */
+div[data-testid="stDataFrame"] {
+    background-color: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 8px !important;
+    padding: 8px !important;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05) !important;
+}
+
+/* 2. Format Table Header Rows (The Column Title Bar) */
+div[data-testid="stDataFrame"] header,
+div[data-testid="stDataFrame"] [role="columnheader"] {
+    background-color: #1e3a8a !important;   /* Signature commanding navy blue */
+    color: #ffffff !important;               /* High-contrast crisp white text */
+    font-weight: 600 !important;
+    letter-spacing: 0.02em !important;
+    text-transform: uppercase !important;    /* Clean SCADA telemetry design format */
+    font-size: 0.85rem !important;
+    border-bottom: 2px solid #1e40af !important;
+}
+
+/* 3. Alternating Row Colors (Zebra Striping for high scannability) */
+div[data-testid="stDataFrame"] [role="row"]:nth-child(even) {
+    background-color: #f8fafc !important;   /* Soft slate gray for alternating lines */
+}
+
+div[data-testid="stDataFrame"] [role="row"]:nth-child(odd) {
+    background-color: #ffffff !important;
+}
+
+/* 4. HOVER ROW HIGHLIGHT: Tracks operator focus as they read rows */
+div[data-testid="stDataFrame"] [role="row"]:hover {
+    background-color: #00d0ff !important;   /* Highlight rows when hovered */
+    transition: background-color 0.15s ease-in-out !important;
+}
+
+/* 5. Clean Grid Boundaries and Gridlines */
+div[data-testid="stDataFrame"] [role="gridcell"] {
+    border-bottom: 1px solid #f1f5f9 !important;
+    border-right: 1px solid #f1f5f9 !important;
+    color: #54709c !important;               /* Readability graphite grey text */
+    font-size: 0.875rem !important;
+}
+/* =====================================================================
+   GLOBAL DATAFRAME COMPONENT HEADER FORMATTING
+   ===================================================================== */
+/* Forces header rows across all tabs to follow your SCADA theme styling specs */
+div[data-testid="stDataFrame"] [role="columnheader"],
+div[data-testid="stDataFrame"] header {
+    background-color: #1e3a8a !important;   /* Branded Navy Blue Header Bar */
+    color: #ffffff !important;               /* Sharp contrast white label text */
+    font-weight: 600 !important;
+    text-transform: uppercase !important;    /* Uniform engineering layout format */
+    letter-spacing: 0.02em !important;
+    font-size: 0.85rem !important;
+}
+
+/* Base table wrapper rounding trim values */
+div[data-testid="stDataFrame"] {
+    background-color: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 8px !important;
+    padding: 6px !important;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05) !important;
 }
