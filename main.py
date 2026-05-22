@@ -873,13 +873,13 @@ else:
 
 
     elif navigation_target == "MAINTENANCE":
-        pass
+        st.caption("welcome")
 
     elif navigation_target == "FIELD DISPATCH FORM":
-        pass
+        st.caption("welcome")
 
     elif navigation_target == "REMOTE TELEMETRY ":
-        pass
+        st.caption("welcome")
 
     elif navigation_target == "CONDITION MAINTENANCE":
-        pass
+        st.caption("welcome")
