@@ -51,34 +51,6 @@ def get_assets_df() -> pd.DataFrame:
         st.error(f"Error connecting to assets database context: {e}")
         return pd.DataFrame()
 
-
-@st.cache_data(ttl=30)
-def get_mappings_df() -> pd.DataFrame:
-    try:
-        res = supabase.table("LOCATION_MAPPING").select("*").order("type").execute()
-        df = pd.DataFrame(res.data)
-        if df.empty:
-            return pd.DataFrame(columns=['id', 'type', 'model', 'kva'])
-        return df
-    except Exception as e:
-        st.error(f"Error loading engineering model specification profiles: {e}")
-        return pd.DataFrame(columns=['id', 'type', 'model', 'kva'])
-
-
-@st.cache_data(ttl=10)
-def get_routing_matrix_df() -> pd.DataFrame:
-    """Fetches the live dynamic cascading routes from the database matrix."""
-    try:
-        res = supabase.table("field_routing_matrix").select("*").order("field_name").execute()
-        df = pd.DataFrame(res.data)
-        if df.empty:
-            return pd.DataFrame(columns=['id', 'field_name', 'area_name', 'location_name'])
-        return df
-    except Exception as e:
-        st.error(f"Error fetching structural routing profiles: {e}")
-        return pd.DataFrame(columns=['id', 'field_name', 'area_name', 'location_name'])
-
-
 def log_audit_event(g_code: str, action: str, status: str, description: str, old_data: dict = None,
                     new_data: dict = None):
     try:
@@ -229,6 +201,31 @@ else:
     # 4. DATA INITIALIZATION & ENVIRONMENT VIEW LAYOUT OVERLAYS (GATEWAY PROTECTED)
     # =====================================================================
     # SAFE ZONE: Supabase data calls are wrapped securely inside the authentication check zone
+    @st.cache_data(ttl=30)
+    def get_mappings_df() -> pd.DataFrame:
+        try:
+            res = supabase.table("asset_mappings").select("*").order("type").execute()
+            df = pd.DataFrame(res.data)
+            if df.empty:
+                return pd.DataFrame(columns=['id', 'type', 'model', 'kva'])
+            return df
+        except Exception as e:
+            st.error(f"Error loading engineering model specification profiles: {e}")
+            return pd.DataFrame(columns=['id', 'type', 'model', 'kva'])
+
+
+    @st.cache_data(ttl=10)
+    def get_routing_matrix_df() -> pd.DataFrame:
+        """Fetches the live dynamic cascading routes from the database matrix."""
+        try:
+            res = supabase.table("field_routing_matrix").select("*").order("field_name").execute()
+            df = pd.DataFrame(res.data)
+            if df.empty:
+                return pd.DataFrame(columns=['id', 'field_name', 'area_name', 'location_name'])
+            return df
+        except Exception as e:
+            st.error(f"Error fetching structural routing profiles: {e}")
+            return pd.DataFrame(columns=['id', 'field_name', 'area_name', 'location_name'])
     mappings_df = get_mappings_df()
     TYPE_LIST = ['----'] + sorted(mappings_df['type'].unique().tolist()) if not mappings_df.empty else ['----']
     routing_df = get_routing_matrix_df()
@@ -840,7 +837,7 @@ else:
         if st.button("🔥 EXECUTE SYSTEM PURGE MANDATE", use_container_width=True, disabled=not confirm_purge,
                      key="execute_purge_btn_standalone"):
             with st.spinner("Wiping database tracking logs..."):
-                purge_result = delete_old_audit_logs(days_retention=retention_days, purge_all=purge_all_flag)
+                purge_result = delete_old_audit_logs(days_retention=retention_days, purge_all=purge_all_flag,key="admin_retention_days_input_standalone_unique")
                 if purge_result["status"] == "success":
                     st.cache_data.clear()
                     st.success(f"Successfully cleared out {purge_result['row_count']} logs from the database!")
