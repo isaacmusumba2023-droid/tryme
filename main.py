@@ -188,11 +188,9 @@ if not st.session_state["authenticated"]:
                                 st.success(f"🎉 Welcome back! Role: {user_assigned_role}")
                                 st.rerun()
                             else:
-                                # This is likely where you are falling through!
                                 st.error(
                                     "❌ Access Denied: Your email is in Auth, but missing a row in 'user_profiles' table.")
                         except Exception as auth_fail:
-                            # Changed from generic string to show the exact system error message
                             st.error(f"❌ Authentication Denied: {str(auth_fail)}")
         st.markdown('</div></div>', unsafe_allow_html=True)
 
@@ -200,7 +198,6 @@ else:
     # =====================================================================
     # 4. DATA INITIALIZATION & ENVIRONMENT VIEW LAYOUT OVERLAYS (GATEWAY PROTECTED)
     # =====================================================================
-    # SAFE ZONE: Supabase data calls are wrapped securely inside the authentication check zone
     @st.cache_data(ttl=30)
     def get_mappings_df() -> pd.DataFrame:
         try:
@@ -612,7 +609,7 @@ else:
                                 'KOC_SERVICE_YR': up_service_yr.isoformat(),
                                 'RUN_HRS': up_run_hr,
                                 'APPR_KVA': up_appr_kva,
-                                'USER': u_user if u_user != '----' else old_snapshot.get('USER'),
+                                'USER': up_user if up_user != '----' else old_snapshot.get('USER'),
                                 'MOVE_DATE': up_move_date.isoformat(),
                                 'REASON': up_reason,
                             }
@@ -695,9 +692,11 @@ else:
                         st.error("Both Parameters are required.")
                     else:
                         try:
-                            supabase.table("LOCATION_MAPPING").upsert(
+                            # FIX: Target "asset_mappings" instead of non-existent "LOCATION_MAPPING"
+                            supabase.table("asset_mappings").upsert(
                                 {"type": cfg_type, "model": cfg_model, "kva": cfg_kva},
-                                on_conflict="type,model").execute()
+                                on_conflict="type,model"
+                            ).execute()
                             st.success("Matrix rule updated successfully!")
                             st.cache_data.clear()
                             st.rerun()
@@ -837,7 +836,8 @@ else:
         if st.button("🔥 EXECUTE SYSTEM PURGE MANDATE", use_container_width=True, disabled=not confirm_purge,
                      key="execute_purge_btn_standalone"):
             with st.spinner("Wiping database tracking logs..."):
-                purge_result = delete_old_audit_logs(days_retention=retention_days, purge_all=purge_all_flag,key="admin_retention_days_input_standalone_unique")
+                # FIX: Removed the incorrect 'key=' keyword parameter that caused a Python crash on execution
+                purge_result = delete_old_audit_logs(days_retention=retention_days, purge_all=purge_all_flag)
                 if purge_result["status"] == "success":
                     st.cache_data.clear()
                     st.success(f"Successfully cleared out {purge_result['row_count']} logs from the database!")
