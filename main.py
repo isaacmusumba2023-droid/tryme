@@ -3,6 +3,9 @@ from supabase import create_client, Client
 import pandas as pd
 from datetime import datetime, date
 import numpy as np
+import base64
+import os
+import time
 
 min_date = date(1900, 1, 1)
 max_date = datetime.today().date()
@@ -52,7 +55,7 @@ def get_assets_df() -> pd.DataFrame:
 @st.cache_data(ttl=30)
 def get_mappings_df() -> pd.DataFrame:
     try:
-        res = supabase.table("asset_mappings").select("*").order("type").execute()
+        res = supabase.table("LOCATION_MAPPING").select("*").order("type").execute()
         df = pd.DataFrame(res.data)
         if df.empty:
             return pd.DataFrame(columns=['id', 'type', 'model', 'kva'])
@@ -106,26 +109,20 @@ def get_audit_logs_df() -> pd.DataFrame:
 def delete_old_audit_logs(days_retention=30, purge_all=False):
     try:
         if purge_all:
-            # Targets uppercase "AUDIT_LOGS" table explicitly with match wildcard
             response = supabase.table("AUDIT_LOGS").delete().neq("g_code", "").execute()
         else:
             from datetime import datetime, timedelta, timezone
             cutoff_date = datetime.now(timezone.utc) - timedelta(days=days_retention)
             cutoff_iso = cutoff_date.isoformat()
             response = supabase.table("AUDIT_LOGS").delete().lt("created_at", cutoff_iso).execute()
-
         return {"status": "success", "row_count": len(response.data) if response.data else 0}
     except Exception as err:
         return {"status": "error", "message": str(err)}
 
 
-# Initialize Engine Options Profiler
-mappings_df = get_mappings_df()
-TYPE_LIST = ['----'] + sorted(mappings_df['type'].unique().tolist()) if not mappings_df.empty else ['----']
-
 # Application Base Matrix Profiles
 TRANS_LIST = ['----', 'NEW GENERATOR', 'DISPATCH', 'RECEIVED', 'INTERNAL-SHIFT']
-LOCATION_LIST = ['----', 'BG-0002', 'MN-0025']  # Kept standard fallback for independent tracking nodes
+LOCATION_LIST = ['----', 'BG-0002', 'MN-0025']
 USER_LIST = ['----', 'ESP-KOC', 'JO-ESP', 'WORKSHOP', 'BURGUN-YRD', 'MOBILE', 'OFF-HIRE', 'ABDALY-FARM', 'READY',
              'DESALTER-PROJECT', 'FIELD_OP.REPAR', 'GAS-MITIGATION', 'MISHRIF', 'PDI', 'WSH-POWER']
 
@@ -158,20 +155,36 @@ if not st.session_state["authenticated"]:
             .block-container { padding-top: 5rem !important; }
             .login-card-container { background-color: #ffffff; border-radius: 14px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); overflow: hidden; border: 1px solid #e0e4ec; }
             .login-blue-header { background: linear-gradient(90deg, #4da3ff, #80bfff); padding: 2rem 1.5rem; text-align: center; color: #ffffff !important; }
-            .login-blue-header h2 { color: #ffffff !important; margin-bottom: 0.4rem !important; font-weight: 700 !important; font-size: 1.6rem !important; letter-spacing: 0.5px; }
-            .login-blue-header p { color: #f0f5ff !important; margin: 0 !important; font-size: 0.9rem !important; opacity: 0.9; }
+            .header-title-container { display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 0.4rem; }
+            .header-logo { height: 45px; width: auto; object-fit: contain; }
+            .login-blue-header h2 { color: #ffffff !important; margin: 0 !important; font-weight: 700 !important; font-size: 1.6rem !important; letter-spacing: 0.5px; line-height: 1.2; }
+            .login-blue-header p { color: #f0f5ff !important; margin: 0 !important; font-size: 0.9rem !important; opacity: 0.9; padding-top: 0.5rem; }
             .login-form-body { padding: 2rem; }
         </style>
         """, unsafe_allow_html=True
     )
 
+
+    def get_base64_image(img_path):
+        if os.path.exists(img_path):
+            with open(img_path, "rb") as img_file:
+                return f"data:image/png;base64,{base64.b64encode(img_file.read()).decode()}"
+        return "https://via.placeholder.com/150"
+
+
+    logo_file_path = "logo.png"
+    img_base64 = get_base64_image(logo_file_path)
+
     _, login_container_col, _ = st.columns([1, 1.8, 1])
     with login_container_col:
         st.markdown('<div class="login-card-container">', unsafe_allow_html=True)
         st.markdown(
-            """
+            f"""
             <div class="login-blue-header">
-                <h2>🔒 Field Operations Digital Asset Monitoring System</h2>
+                <div class="header-title-container">
+                    <img src="{img_base64}" class="header-logo" alt="Corporate Logo">
+                    <h2>Field Operations Digital Assets Monitoring System</h2>
+                </div>
                 <p>Enterprise Digital Asset Management Registry Identity Authentication Portal</p>
             </div>
             """, unsafe_allow_html=True
@@ -203,17 +216,26 @@ if not st.session_state["authenticated"]:
                                 st.success(f"🎉 Welcome back! Role: {user_assigned_role}")
                                 st.rerun()
                             else:
-                                st.error("❌ Access Denied: Profile role assignment matrix missing.")
+                                # This is likely where you are falling through!
+                                st.error(
+                                    "❌ Access Denied: Your email is in Auth, but missing a row in 'user_profiles' table.")
                         except Exception as auth_fail:
-                            st.error("❌ Authentication Denied: Invalid credentials.")
+                            # Changed from generic string to show the exact system error message
+                            st.error(f"❌ Authentication Denied: {str(auth_fail)}")
         st.markdown('</div></div>', unsafe_allow_html=True)
 
 else:
     # =====================================================================
-    # 4. ENVIRONMENT VIEW LAYOUT OVERLAYS
+    # 4. DATA INITIALIZATION & ENVIRONMENT VIEW LAYOUT OVERLAYS (GATEWAY PROTECTED)
     # =====================================================================
-    st.markdown(inject_custom_css("style.css"), unsafe_allow_html=True)
+    # SAFE ZONE: Supabase data calls are wrapped securely inside the authentication check zone
+    mappings_df = get_mappings_df()
+    TYPE_LIST = ['----'] + sorted(mappings_df['type'].unique().tolist()) if not mappings_df.empty else ['----']
+    routing_df = get_routing_matrix_df()
+    LIVE_FIELD_OPTIONS = ['----'] + sorted(routing_df['field_name'].unique().tolist()) if not routing_df.empty else [
+        '----']
 
+    st.markdown(inject_custom_css("style.css"), unsafe_allow_html=True)
     st.markdown(
         """
         <style>
@@ -232,15 +254,10 @@ else:
 
     user_clearance_role = st.session_state["user_role"]
     if user_clearance_role in ["MANAGER", "DEVELOPER", "SUPERVISOR", "ENGINEER"]:
-        allowed_views = ["GENERAL_ASSETS", "ASSET MANAGEMENT", "AUDIT LOGS","WORKSHOP","STORES & PARTS",
-                         "MAINTENANCE","FLEET MANAGEMENT","REMOTE TELEMETRY","REPORTS", "SETTINGS"]
+        allowed_views = ["GENERAL_ASSETS", "ASSET MANAGEMENT", "AUDIT LOGS", "WORKSHOP", "STORES & PARTS",
+                         "MAINTENANCE", "FLEET MANAGEMENT", "REMOTE TELEMETRY", "REPORTS", "SETTINGS"]
     else:
         allowed_views = ["GENERAL_ASSETS", "ASSET MANAGEMENT"]
-
-    # Load live routing parameters matrix mapping dependencies
-    routing_df = get_routing_matrix_df()
-    LIVE_FIELD_OPTIONS = ['----'] + sorted(routing_df['field_name'].unique().tolist()) if not routing_df.empty else [
-        '----']
 
     # =====================================================================
     # 5. SIDEBAR CONTROLLER WRAPPER
@@ -267,18 +284,14 @@ else:
         st.session_state["user_role"] = None
         st.rerun()
 
-
     # =====================================================================
-    # 1. GENERAL
+    # 1. GENERAL ASSETS RUNTIME VIEWPORT
     # =====================================================================
     if navigation_target == "GENERAL_ASSETS":
-
-        df=get_assets_df()
+        df = get_assets_df()
         if not df.empty:
             try:
-                # count constraints from main table safely via value_counts
                 user_counts = df['USER'].value_counts()
-
                 v_ESP = user_counts.get('ESP-KOC', 0)
                 v_WHP = user_counts.get('WORKSHOP', 0)
                 v_JO = user_counts.get('JO-ESP', 0)
@@ -295,23 +308,22 @@ else:
                 v_WPP = user_counts.get('WSH-POWER', 0)
                 v_TT = len(df)
 
-                #create display
                 st.caption("QUICK ASSET ANALYSIS BY CURRENT USER")
-                col1, col2,col3,col4,col5 = st.columns(5)
+                col1, col2, col3, col4, col5 = st.columns(5)
                 with col1:
-                    st.metric('ESP-KOC', int(v_ESP),delta='+',delta_color="blue",border=True)
-                    st.metric('WORKSHOP', int(v_WHP),delta='+',delta_color="blue",border=True)
-                    st.metric('JO-ESP', int(v_JO),delta='+',delta_color="blue",border=True)
+                    st.metric('ESP-KOC', int(v_ESP), delta='+', delta_color="blue", border=True)
+                    st.metric('WORKSHOP', int(v_WHP), delta='+', delta_color="blue", border=True)
+                    st.metric('JO-ESP', int(v_JO), delta='+', delta_color="blue", border=True)
                 with col2:
-                    st.metric('BURGUN-YRD', int(v_BYRD),delta='+',delta_color="blue",border=True)
-                    st.metric('MOBILE', int(v_MBL),delta='+',delta_color="blue",border=True)
-                    st.metric('OFF-HIRE', int(v_OFF),delta='+',delta_color="blue",border=True)
+                    st.metric('BURGUN-YRD', int(v_BYRD), delta='+', delta_color="blue", border=True)
+                    st.metric('MOBILE', int(v_MBL), delta='+', delta_color="blue", border=True)
+                    st.metric('OFF-HIRE', int(v_OFF), delta='+', delta_color="blue", border=True)
                 with col3:
-                    st.metric('ABDALY-FARM',int(v_abd),delta='+',delta_color="blue",border=True)
-                    st.metric('READY', int(v_RDY),delta='+',delta_color="blue",border=True)
-                    st.metric('DESALTER-PROJECT', int(v_DST),delta='+',delta_color="blue",border=True)
+                    st.metric('ABDALY-FARM', int(v_abd), delta='+', delta_color="blue", border=True)
+                    st.metric('READY', int(v_RDY), delta='+', delta_color="blue", border=True)
+                    st.metric('DESALTER-PROJECT', int(v_DST), delta='+', delta_color="blue", border=True)
                 with col4:
-                    st.metric('FIELD-OP/REPAR',int(v_FD),delta='+',delta_color="blue",border=True)
+                    st.metric('FIELD-OP/REPAR', int(v_FD), delta='+', delta_color="blue", border=True)
                     st.metric('GAS-MITIGATION', int(v_GAS), delta='+', delta_color="blue", border=True)
                     st.metric('MISHRIF', int(v_MHF), delta='+', delta_color="blue", border=True)
                 with col5:
@@ -321,8 +333,11 @@ else:
             except Exception as e:
                 st.error(f"Error parsing status metrics: {e}")
         else:
-            st.error("No assets found")
-    #=======================================================================================================================
+            st.info("No corporate equipment assets found inside database inventory.")
+
+    # =====================================================================
+    # 2. ASSET MANAGEMENT ACTIONS ENGINE
+    # =====================================================================
     elif navigation_target == "ASSET MANAGEMENT":
         df = get_assets_df()
         tab1, tab2, tab3, tab4, tab5 = st.tabs(
@@ -355,7 +370,6 @@ else:
             st.markdown("---")
             st.caption("Step 2: Complete Operational CASCADING Logistics Placement Metadata")
 
-            # Dynamic Cascading Selectors for the ADD panel (Kept outside form context for live reloading)
             cascade_col1, cascade_col2, cascade_col3 = st.columns(3)
             with cascade_col1:
                 u_field = st.selectbox('FIELD Grouping Placement:', options=LIVE_FIELD_OPTIONS, key="add_field_cascade")
@@ -439,10 +453,10 @@ else:
                         if live_res.data:
                             asset_row = live_res.data[0]
                         else:
-                            st.error(f"Asset {selected_gcode} could not be located.");
+                            st.error(f"Asset {selected_gcode} could not be located.")
                             st.stop()
                     except Exception as db_err:
-                        st.error(f"Failed to fetch live asset data: {db_err}");
+                        st.error(f"Failed to fetch live asset data: {db_err}")
                         st.stop()
 
 
@@ -451,7 +465,6 @@ else:
                     return opt_list.index(v) if v in opt_list else 0
 
 
-                # --- CASCADING HOOK CONTROLS FOR THE UPDATE SUB-FRAME ---
                 st.markdown("##### Dynamic Operational Cascade Routing Workflow")
                 up_cascade_col1, up_cascade_col2, up_cascade_col3 = st.columns(3)
 
@@ -491,16 +504,17 @@ else:
                 type_key = f"form_type_{selected_gcode}"
                 model_key = f"form_model_{selected_gcode}"
 
-                if type_key not in st.session_state: st.session_state[
-                    type_key] = db_type if db_type in TYPE_LIST else '----'
+                if type_key not in st.session_state:
+                    st.session_state[type_key] = db_type if db_type in TYPE_LIST else '----'
                 current_type = st.session_state[type_key]
                 up_filtered = mappings_df[
                     mappings_df['type'] == current_type] if current_type != '----' else pd.DataFrame()
                 up_allowed_models = ['----'] + sorted(
                     up_filtered['model'].unique().tolist()) if not up_filtered.empty else ['----']
 
-                if model_key not in st.session_state: st.session_state[model_key] = db_model if (
-                        current_type == db_type and db_model in up_allowed_models) else '----'
+                if model_key not in st.session_state:
+                    st.session_state[model_key] = db_model if (
+                                current_type == db_type and db_model in up_allowed_models) else '----'
 
                 with st.form(key=f"ASSET_UPDATE_FORM_GROUP_{selected_gcode}"):
                     st.markdown("##### Configuration Fields")
@@ -595,11 +609,15 @@ else:
                                     'FROM_LOCATION'),
                                 'SERIAL_NO': up_serial,
                                 'MODEL': up_model if up_model != '----' else old_snapshot.get('MODEL'),
-                                'TYPE': up_type if up_type != '----' else old_snapshot.get('TYPE'), 'GEN_KVA': up_kva,
-                                'MANUF_YR': up_manuf_date.isoformat(), 'KOC_SERVICE_YR': up_service_yr.isoformat(),
-                                'RUN_HRS': up_run_hr, 'APPR_KVA': up_appr_kva,
-                                'USER': up_user if up_user != '----' else old_snapshot.get('USER'),
-                                'MOVE_DATE': up_move_date.isoformat(), 'REASON': up_reason,
+                                'TYPE': up_type if up_type != '----' else old_snapshot.get('TYPE'),
+                                'GEN_KVA': up_kva,
+                                'MANUF_YR': up_manuf_date.isoformat(),
+                                'KOC_SERVICE_YR': up_service_yr.isoformat(),
+                                'RUN_HRS': up_run_hr,
+                                'APPR_KVA': up_appr_kva,
+                                'USER': u_user if u_user != '----' else old_snapshot.get('USER'),
+                                'MOVE_DATE': up_move_date.isoformat(),
+                                'REASON': up_reason,
                             }
 
                             try:
@@ -611,7 +629,7 @@ else:
                                                 f"Advanced runtime parameter metrics: {current_run_hrs:,} -> {up_run_hr:,} hrs.",
                                                 old_snapshot, new_snapshot)
                                 st.success("Asset successfully synchronized across network registries!")
-                                st.cache_data.clear();
+                                st.cache_data.clear()
                                 st.rerun()
                             except Exception as update_err:
                                 st.error(f"Supabase Execution Sync Fault: {update_err}")
@@ -651,6 +669,9 @@ else:
             else:
                 st.info("No audit transactions logged inside tracking structures yet.")
 
+    # =====================================================================
+    # 3. SETTINGS MATRIX PLATFORM
+    # =====================================================================
     elif navigation_target == "SETTINGS":
         st.title("⚙️ System Operational Settings Configuration")
         cfg_tab1, cfg_tab2, cfg_tab3 = st.tabs(
@@ -658,8 +679,8 @@ else:
 
         with cfg_tab1:
             st.caption("Active Mapping Rules Matrix (Loaded from Database)")
-            if not mappings_df.empty: st.dataframe(mappings_df[['type', 'model', 'kva']], use_container_width=True,
-                                                   hide_index=True)
+            if not mappings_df.empty:
+                st.dataframe(mappings_df[['type', 'model', 'kva']], use_container_width=True, hide_index=True)
 
         with cfg_tab2:
             st.subheader("Manage Specifications Matrix Rule")
@@ -677,21 +698,19 @@ else:
                         st.error("Both Parameters are required.")
                     else:
                         try:
-                            supabase.table("asset_mappings").upsert(
+                            supabase.table("LOCATION_MAPPING").upsert(
                                 {"type": cfg_type, "model": cfg_model, "kva": cfg_kva},
                                 on_conflict="type,model").execute()
-                            st.success("Matrix rule updated successfully!");
-                            st.cache_data.clear();
+                            st.success("Matrix rule updated successfully!")
+                            st.cache_data.clear()
                             st.rerun()
                         except Exception as e:
                             st.error(f"Failed to apply matrix update: {e}")
 
-        # --- NEW ADAPTIVE LAYOUT COMPONENT: CRUD FOR CASCADE LOGISTICS CONTROLS ---
         with cfg_tab3:
             st.subheader("Dynamic Field/Area/Location Cascading Matrix Registry")
             st.caption("Add or delete options mapping paths to configure dropdown availability parameters seamlessly.")
 
-            # Display current live options matrix grid
             st.markdown("##### Active Logistical Configuration Routing Path Ledger:")
             if not routing_df.empty:
                 display_routing = routing_df.copy().rename(
@@ -723,7 +742,7 @@ else:
                                     {"field_name": in_field, "area_name": in_area, "location_name": in_loc}).execute()
                                 st.success(
                                     f"Successfully pinned structural logistics pathway path entry node layout mapping!")
-                                st.cache_data.clear();
+                                st.cache_data.clear()
                                 st.rerun()
                             except Exception as ex:
                                 st.error(f"Failed to record logistical pathway matrix configuration payload: {ex}")
@@ -731,7 +750,6 @@ else:
             with act_col2:
                 st.markdown("🗑️ **Prune Existing Matrix Route Profile**")
                 if not routing_df.empty:
-                    # Map options into scannable strings
                     routing_df['label_str'] = "FIELD: " + routing_df['field_name'] + " ➡️ AREA: " + routing_df[
                         'area_name'] + " ➡️ LOC: " + routing_df['location_name']
                     id_map = dict(zip(routing_df['label_str'], routing_df['id']))
@@ -745,141 +763,109 @@ else:
                             supabase.table("field_routing_matrix").delete().eq("id", int(target_route_id)).execute()
                             st.success(
                                 "Logistical pathway component successfully dropped out of database configuration profiles!")
-                            st.cache_data.clear();
+                            st.cache_data.clear()
                             st.rerun()
                         except Exception as ex:
                             st.error(f"Purge Execution Denied: {ex}")
                 else:
                     st.info("No routing matrices available to drop.")
 
-
+    # =====================================================================
+    # 4. SYSTEM ADMINISTRATIVE AUDIT MONITOR LOGS
+    # =====================================================================
     elif navigation_target == "AUDIT LOGS":
-
         st.title("⚙️ System Administrative Control Settings")
-
-        # 1. Initialize or load the audit data container
-
         logs_df = get_audit_logs_df()
 
         if not logs_df.empty:
-
             logs_df['created_at'] = pd.to_datetime(logs_df['created_at']).dt.strftime('%Y-%m-%d %H:%M:%S')
 
 
             def extract_metric(row_json, key_name):
-
                 if isinstance(row_json, dict) and key_name in row_json:
                     val = row_json[key_name]
-
                     return val if val is not None and val != "----" else "—"
-
                 return "—"
 
 
             logs_df['From Location'] = logs_df['new_values'].apply(lambda x: extract_metric(x, 'FROM_LOCATION'))
-
             logs_df['To Location'] = logs_df['new_values'].apply(lambda x: extract_metric(x, 'TO_LOCATION'))
-
             logs_df['Reason'] = logs_df['new_values'].apply(lambda x: extract_metric(x, 'REASON'))
-
             logs_df['KVA Rating'] = logs_df['new_values'].apply(lambda x: extract_metric(x, 'GEN_KVA'))
-
             logs_df['Running Hours'] = logs_df['new_values'].apply(lambda x: extract_metric(x, 'RUN_HRS'))
 
             search_gcode = st.text_input("🔍 Quick-Filter Ledger by Asset ID (G-CODE):", placeholder="e.g., G-009",
                                          key="standalone_audit_ledger_search").strip().upper()
-
             filtered_df = logs_df[
                 logs_df['g_code'].str.upper().str.contains(search_gcode, na=False)] if search_gcode else logs_df.copy()
 
             display_df = filtered_df.rename(
                 columns={'created_at': 'Timestamp', 'changed_by': 'Login Credentials', 'g_code': 'Asset ID (G-CODE)',
                          'action_type': 'Action'})
-
             target_columns = ['Timestamp', 'Asset ID (G-CODE)', 'From Location', 'To Location', 'Running Hours',
                               'Reason', 'KVA Rating', 'Login Credentials']
 
             designed_logs_df = display_df[target_columns].style.apply(style_zebra_rows, axis=None)
-
             st.dataframe(designed_logs_df, use_container_width=True, hide_index=True)
-
         else:
-
             st.info("No audit transactions logged inside tracking structures yet.")
 
         st.markdown("---")
-
         st.error("⚠️ CRITICAL ADMINISTRATIVE ACTIONS: PURGE ENGINE AUDIT LEDGER")
 
         purge_mode = st.radio(
-
             "Select Purge Strategy:",
-
             options=["Retain Recent Logs (By Date)", "💥 COMPLETE SYSTEM WIPE (Delete Everything Automatically)"],
-
             index=0,
-
             key="admin_purge_strategy_choice_standalone"
-
         )
 
         purge_all_flag = False
-
         retention_days = 30
 
         if "Retain Recent Logs" in purge_mode:
-
             retention_days = st.number_input(
-
                 "Select Log Retention Window (Days to Keep):",
-
                 min_value=1, max_value=365, value=30, step=1,
-
                 key="admin_retention_days_input_standalone"
-
             )
-
         else:
-
             purge_all_flag = True
-
             st.warning(
-                "‼️ WARNING: Choosing this option will instantaneously erase every single historical row in the AUDIT_LOGS database table regardless of age. This action is permanent.")
-
-        # Double confirmation check to protect live assets tracking data logs
+                "‼️ WARNING: Choosing this option will erase every row in the AUDIT_LOGS table. This action is permanent.")
 
         confirm_purge = st.checkbox("I explicitly authorize the irreversible destruction of these data registries.",
                                     value=False, key="ui_lock_purge_gate_standalone")
 
         if st.button("🔥 EXECUTE SYSTEM PURGE MANDATE", use_container_width=True, disabled=not confirm_purge,
                      key="execute_purge_btn_standalone"):
-
             with st.spinner("Wiping database tracking logs..."):
-
                 purge_result = delete_old_audit_logs(days_retention=retention_days, purge_all=purge_all_flag)
-
                 if purge_result["status"] == "success":
-                    # FORCE CACHE PURGE IMMEDIATELY
-
                     st.cache_data.clear()
-
-                    # Notify the operator instantly
-
                     st.success(f"Successfully cleared out {purge_result['row_count']} logs from the database!")
+                    time.sleep(1)
+                    st.rerun()
+                else:
+                    st.error(f"Purge process failure: {purge_result.get('message')}")
 
-                    # Sleep slightly and rerun to load a completely fre
+    # =====================================================================
+    # 5. UNIMPLEMENTED PLACEHOLDER ROUTING TARGETS
+    # =====================================================================
+    elif navigation_target == "WORKSHOP":
+        st.info("Workshop processing terminal interface modules pending development configurations.")
 
-
-
+    elif navigation_target == "STORES & PARTS":
+        st.info("Stores and raw components logistics management ledger pending implementation sync.")
 
     elif navigation_target == "MAINTENANCE":
-        st.caption("welcome")
+        st.info("Maintenance schedules workflow manager pending engineering configuration.")
 
-    elif navigation_target == "FIELD DISPATCH FORM":
-        st.caption("welcome")
+    elif navigation_target == "FLEET MANAGEMENT":
+        st.info("Fleet operational telemetry maps overview profiles pending compilation.")
 
-    elif navigation_target == "REMOTE TELEMETRY ":
-        st.caption("welcome")
+    elif navigation_target == "REMOTE TELEMETRY":
+        st.info("Scada/IoT streaming pipeline processing endpoints interface metrics offline.")
 
-    elif navigation_target == "CONDITION MAINTENANCE":
-        st.caption("welcome")
+    elif navigation_target == "REPORTS":
+        st.info("System reports compilation generation platform routing setup offline.")
