@@ -18,6 +18,21 @@ st.set_page_config(
     layout="wide"
 )
 
+# -----------------------------------------------------------------
+# DYNAMIC USER REGISTRY LOADING
+# -----------------------------------------------------------------
+@st.cache_data(ttl=600)  # Caches for 10 minutes, clears on update
+def load_user_registry():
+    try:
+        res = supabase.table("USER_REGISTRY").select("user_name").order("user_name", ascending=True).execute()
+        if res.data:
+            return ['----'] + [row['user_name'] for row in res.data]
+        return ['----', 'ESP-KOC', 'JO-ESP', 'WORKSHOP'] # Fallback
+    except Exception as e:
+        return ['----', 'KOC', 'JOA', 'WORKSHOP'] # Fault safe fallback
+
+# Globally populated list used by all asset dropdown forms
+USER_LIST = load_user_registry()
 
 @st.cache_data(show_spinner=False)
 def inject_custom_css(css_file_path: str = "style.css"):
@@ -538,8 +553,9 @@ else:
                                                  key=f"up_kva_widget_{selected_gcode}", disabled=lock_engine_specs)
 
                     st.markdown("---")
-                    st.markdown("##### Independent Tracking Variables")
+                    st.markdown("##### Independent Tracking Variables & Deployment Metrics")
                     col1, col2, col3 = st.columns(3)
+
                     with col1:
                         up_transfer = st.selectbox('TRANSFER_STATUS Workflow:', options=TRANS_LIST,
                                                    index=get_index(TRANS_LIST, asset_row.get('TRANSFER_STATUS')),
@@ -547,8 +563,18 @@ else:
                         up_user = st.selectbox('USER assignment:', options=USER_LIST,
                                                index=get_index(USER_LIST, asset_row.get('USER')),
                                                key=f"up_user_{selected_gcode}")
+
+                        # New Input 1: PURPOSE (Slotted into Column 1)
+                        PURPOSE_LIST = ['----', 'REPLACEMENT', 'NEW INSTALLATION', 'OFF-HIRE BACKLOAD']
+                        db_purpose = str(asset_row.get('PURPOSE', '')).strip().upper()
+                        up_purpose = st.selectbox(
+                            'Deployment PURPOSE:',
+                            options=PURPOSE_LIST,
+                            index=PURPOSE_LIST.index(db_purpose) if db_purpose in PURPOSE_LIST else 0,
+                            key=f"up_purpose_{selected_gcode}"
+                        )
+
                     with col2:
-                        # DYNAMIC UPDATE: Pointed directly to MAPPED_LOCATIONS_POOL
                         up_from_location = st.selectbox('FROM_LOCATION profile:', options=MAPPED_LOCATIONS_POOL,
                                                         index=get_index(MAPPED_LOCATIONS_POOL,
                                                                         asset_row.get('FROM_LOCATION')),
@@ -563,6 +589,20 @@ else:
                             current_appr_kva = 0
                         up_appr_kva = st.number_input('APPR_KVA verification:', min_value=0, value=current_appr_kva,
                                                       key=f"up_appr_{selected_gcode}", disabled=lock_engine_specs)
+
+                        # New Input 2: CREW (Slotted into Column 2)
+                        try:
+                            current_crew = int(float(asset_row.get('CREW', 0)))
+                        except:
+                            current_crew = 0
+                        up_crew = st.number_input(
+                            'CREW Count Allocated:',
+                            min_value=0,
+                            value=current_crew,
+                            step=1,
+                            key=f"up_crew_{selected_gcode}"
+                        )
+
                     with col3:
                         def safe_date(val):
                             if pd.isna(val) or not val: return max_date
@@ -587,6 +627,20 @@ else:
                         up_move_date = st.date_input('MOVE_DATE:', value=safe_date(asset_row.get('MOVE_DATE')),
                                                      key=f"up_move_dt_{selected_gcode}")
 
+                        # New Input 3: GC (Slotted into Column 3)
+                        try:
+                            current_gc = int(float(asset_row.get('GC', 0)))
+                        except:
+                            current_gc = 0
+                        up_gc = st.number_input(
+                            'GC Fields:',
+                            min_value=0,
+                            value=current_gc,
+                            step=1,
+                            key=f"up_gc_{selected_gcode}"
+                        )
+
+                    st.markdown("---")
                     up_reason = st.text_area("REASON / TRANSFER REMARKS:",
                                              value=str(asset_row.get('REASON', '')) if asset_row.get(
                                                  'REASON') is not None else '', key=f"up_reason_{selected_gcode}")
@@ -622,6 +676,11 @@ else:
                                 'USER': up_user if up_user != '----' else old_snapshot.get('USER'),
                                 'MOVE_DATE': up_move_date.isoformat(),
                                 'REASON': up_reason,
+
+                                # Payload safely targets your database columns
+                                'PURPOSE': up_purpose if up_purpose != '----' else None,
+                                'CREW': up_crew,
+                                'GC': up_gc
                             }
 
                             try:
@@ -678,8 +737,8 @@ else:
     # =====================================================================
     elif navigation_target == "SETTINGS":
         st.title("⚙️ System Operational Settings Configuration")
-        cfg_tab1, cfg_tab2, cfg_tab3 = st.tabs(
-            ["Active Models Mapping", "Upsert Model Profiles", "🛠️ MANAGE FIELD LOGISTICS REGISTRIES"])
+        cfg_tab1, cfg_tab2, cfg_tab3,cfg_tab4 = st.tabs(
+            ["Active Models Mapping", "Upsert Model Profiles", "🛠️ MANAGE FIELD LOGISTICS REGISTRIES","USER UPDATE"])
 
         with cfg_tab1:
             st.caption("Active Mapping Rules Matrix (Loaded from Database)")
@@ -775,6 +834,49 @@ else:
                 else:
                     st.info("No routing matrices available to drop.")
 
+        with cfg_tab4:
+
+            with st.expander("USER SETTINGS", expanded=False):
+                # -----------------------------------------------------------------
+                # USER REGISTRY DICTIONARY UTILITY MANAGEMENT
+                # -----------------------------------------------------------------
+                st.markdown("---")
+                st.subheader("⚙️ User Assignment Registry Control")
+                st.caption("Add or decommission asset operators/users without modifying application source code.")
+
+                reg_col1, reg_col2 = st.columns(2)
+
+                with reg_col1:
+                    st.markdown("##### Add New Registry Entry")
+                    new_reg_user = st.text_input("Operator / User Name Name:", key="new_user_reg_input").strip().upper()
+                    if st.button("➕ Register User", use_container_width=True):
+                        if not new_reg_user or new_reg_user == '----':
+                            st.warning("Please type a valid user identification string.")
+                        else:
+                            try:
+                                supabase.table("USER_REGISTRY").insert({'user_name': new_reg_user}).execute()
+                                st.success(f"'{new_reg_user}' integrated successfully!")
+                                st.cache_data.clear()  # Clears cache to instantly refresh the dropdowns
+                                st.rerun()
+                            except Exception as err:
+                                st.error(f"Failed to write record: {err}")
+
+                with reg_col2:
+                    st.markdown("##### Delete Registry Entry")
+                    # Exclude the structural placeholder '----' from deletion options
+                    deletion_options = [u for u in USER_LIST if u != '----']
+                    user_to_delete = st.selectbox("Select User to Remove:", options=deletion_options,
+                                                  key="delete_user_reg_select")
+
+                    if st.button("❌ Drop User Profile", use_container_width=True):
+                        if user_to_delete:
+                            try:
+                                supabase.table("USER_REGISTRY").delete().eq('user_name', user_to_delete).execute()
+                                st.success(f"'{user_to_delete}' purged from central systems.")
+                                st.cache_data.clear()  # Clears cache to instantly refresh the dropdowns
+                                st.rerun()
+                            except Exception as err:
+                                st.error(f"Failed to drop database link: {err}")
     # =====================================================================
     # 4. SYSTEM ADMINISTRATIVE AUDIT MONITOR LOGS
     # =====================================================================
