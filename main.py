@@ -385,19 +385,19 @@ else:
 
             cascade_col1, cascade_col2, cascade_col3 = st.columns(3)
             with cascade_col1:
-                u_field = st.selectbox('FIELD Grouping Placement:', options=LIVE_FIELD_OPTIONS, key="add_field_cascade")
+                u_field = st.selectbox('TO_FIELD :', options=LIVE_FIELD_OPTIONS, key="add_field_cascade")
             with cascade_col2:
                 field_matched_df = routing_df[
                     routing_df['field_name'] == u_field] if u_field != '----' else pd.DataFrame()
                 ALLOWED_AREAS = ['----'] + sorted(
                     field_matched_df['area_name'].unique().tolist()) if not field_matched_df.empty else ['----']
-                u_area = st.selectbox('AREA Registry Code:', options=ALLOWED_AREAS, key="add_area_cascade")
+                u_area = st.selectbox('AREA :', options=ALLOWED_AREAS, key="add_area_cascade")
             with cascade_col3:
                 area_matched_df = field_matched_df[
                     field_matched_df['area_name'] == u_area] if u_area != '----' else pd.DataFrame()
                 ALLOWED_LOCATIONS = ['----'] + sorted(
                     area_matched_df['location_name'].unique().tolist()) if not area_matched_df.empty else ['----']
-                u_location = st.selectbox('Target TO_LOCATION Profile Node:', options=ALLOWED_LOCATIONS,
+                u_location = st.selectbox('TO_LOCATION :', options=ALLOWED_LOCATIONS,
                                           key="add_location_cascade")
 
             with st.form('ASSET_ADD_LOGISTICS_FORM', clear_on_submit=True):
@@ -405,7 +405,7 @@ else:
                 with col1:
                     u_transfer = st.selectbox('TRANSFER_STATUS:', options=TRANS_LIST, key="add_transfer")
                     u_from_location = st.selectbox('FROM_LOCATION:', options=MAPPED_LOCATIONS_POOL, key="add_from_loc")
-                    g_code = st.text_input('G-CODE Identifier:', value='', key="add_gcode")
+                    g_code = st.text_input('ENTER G-CODE:', value='', key="add_gcode")
                 with col2:
                     u_serial = st.text_input('SERIAL_NO:', value='', key="add_serial")
                     u_manuf_date = st.date_input('MANUF_YR:', min_value=min_date, max_value=max_date, key="add_manuf")
@@ -483,7 +483,7 @@ else:
 
                 with up_cascade_col1:
                     db_field = asset_row.get('FIELD', '----')
-                    up_field = st.selectbox('Modify FIELD Registry:', options=LIVE_FIELD_OPTIONS,
+                    up_field = st.selectbox('TO_FIELD :', options=LIVE_FIELD_OPTIONS,
                                             index=get_index(LIVE_FIELD_OPTIONS, db_field),
                                             key=f"up_field_cascade_{selected_gcode}")
                 with up_cascade_col2:
@@ -493,7 +493,7 @@ else:
                         up_field_matched_df['area_name'].unique().tolist()) if not up_field_matched_df.empty else [
                         '----']
                     db_area = asset_row.get('AREA', '----')
-                    up_area = st.selectbox('Modify AREA Registry:', options=UP_ALLOWED_AREAS,
+                    up_area = st.selectbox('TO_AREA :', options=UP_ALLOWED_AREAS,
                                            index=get_index(UP_ALLOWED_AREAS, db_area),
                                            key=f"up_area_cascade_{selected_gcode}")
                 with up_cascade_col3:
@@ -503,7 +503,7 @@ else:
                         up_area_matched_df['location_name'].unique().tolist()) if not up_area_matched_df.empty else [
                         '----']
                     db_loc = asset_row.get('TO_LOCATION', '----')
-                    up_location = st.selectbox('Modify TO_LOCATION Registry:', options=UP_ALLOWED_LOCATIONS,
+                    up_location = st.selectbox('TO_LOCATION :', options=UP_ALLOWED_LOCATIONS,
                                                index=get_index(UP_ALLOWED_LOCATIONS, db_loc),
                                                key=f"up_to_loc_cascade_{selected_gcode}")
 
@@ -553,10 +553,10 @@ else:
                     col1, col2, col3 = st.columns(3)
 
                     with col1:
-                        up_transfer = st.selectbox('TRANSFER_STATUS Workflow:', options=TRANS_LIST,
+                        up_transfer = st.selectbox('TRANSFER_STATUS :', options=TRANS_LIST,
                                                    index=get_index(TRANS_LIST, asset_row.get('TRANSFER_STATUS')),
                                                    key=f"up_trans_status_{selected_gcode}")
-                        up_user = st.selectbox('USER assignment:', options=USER_LIST,
+                        up_user = st.selectbox('ENTER USER :', options=USER_LIST,
                                                index=get_index(USER_LIST, asset_row.get('USER')),
                                                key=f"up_user_{selected_gcode}")
 
