@@ -51,6 +51,7 @@ def get_assets_df() -> pd.DataFrame:
         st.error(f"Error connecting to assets database context: {e}")
         return pd.DataFrame()
 
+
 def log_audit_event(g_code: str, action: str, status: str, description: str, old_data: dict = None,
                     new_data: dict = None):
     try:
@@ -94,7 +95,6 @@ def delete_old_audit_logs(days_retention=30, purge_all=False):
 
 # Application Base Matrix Profiles
 TRANS_LIST = ['----', 'NEW GENERATOR', 'DISPATCH', 'RECEIVED', 'INTERNAL-SHIFT']
-LOCATION_LIST = ['----', 'BG-0002', 'MN-0025']
 USER_LIST = ['----', 'ESP-KOC', 'JO-ESP', 'WORKSHOP', 'BURGUN-YRD', 'MOBILE', 'OFF-HIRE', 'ABDALY-FARM', 'READY',
              'DESALTER-PROJECT', 'FIELD_OP.REPAR', 'GAS-MITIGATION', 'MISHRIF', 'PDI', 'WSH-POWER']
 
@@ -223,11 +223,17 @@ else:
         except Exception as e:
             st.error(f"Error fetching structural routing profiles: {e}")
             return pd.DataFrame(columns=['id', 'field_name', 'area_name', 'location_name'])
+
+
     mappings_df = get_mappings_df()
     TYPE_LIST = ['----'] + sorted(mappings_df['type'].unique().tolist()) if not mappings_df.empty else ['----']
     routing_df = get_routing_matrix_df()
     LIVE_FIELD_OPTIONS = ['----'] + sorted(routing_df['field_name'].unique().tolist()) if not routing_df.empty else [
         '----']
+
+    # NEW DYNAMIC FROM_LOCATION POOL GENERATED DIRECTLY FROM TO_LOCATION DATA IN MATRIX
+    MAPPED_LOCATIONS_POOL = ['----'] + sorted(
+        routing_df['location_name'].dropna().unique().tolist()) if not routing_df.empty else ['----']
 
     st.markdown(inject_custom_css("style.css"), unsafe_allow_html=True)
     st.markdown(
@@ -385,7 +391,9 @@ else:
                 col1, col2, col3 = st.columns(3)
                 with col1:
                     u_transfer = st.selectbox('TRANSFER_STATUS:', options=TRANS_LIST, key="add_transfer")
-                    u_from_location = st.selectbox('FROM_LOCATION:', options=LOCATION_LIST, key="add_from_loc")
+
+                    # DYNAMIC UPDATE: Pointed directly to MAPPED_LOCATIONS_POOL
+                    u_from_location = st.selectbox('FROM_LOCATION:', options=MAPPED_LOCATIONS_POOL, key="add_from_loc")
                     g_code = st.text_input('G-CODE Identifier:', value='', key="add_gcode")
                 with col2:
                     u_serial = st.text_input('SERIAL_NO:', value='', key="add_serial")
@@ -508,7 +516,7 @@ else:
 
                 if model_key not in st.session_state:
                     st.session_state[model_key] = db_model if (
-                                current_type == db_type and db_model in up_allowed_models) else '----'
+                            current_type == db_type and db_model in up_allowed_models) else '----'
 
                 with st.form(key=f"ASSET_UPDATE_FORM_GROUP_{selected_gcode}"):
                     st.markdown("##### Configuration Fields")
@@ -540,8 +548,10 @@ else:
                                                index=get_index(USER_LIST, asset_row.get('USER')),
                                                key=f"up_user_{selected_gcode}")
                     with col2:
-                        up_from_location = st.selectbox('FROM_LOCATION profile:', options=LOCATION_LIST,
-                                                        index=get_index(LOCATION_LIST, asset_row.get('FROM_LOCATION')),
+                        # DYNAMIC UPDATE: Pointed directly to MAPPED_LOCATIONS_POOL
+                        up_from_location = st.selectbox('FROM_LOCATION profile:', options=MAPPED_LOCATIONS_POOL,
+                                                        index=get_index(MAPPED_LOCATIONS_POOL,
+                                                                        asset_row.get('FROM_LOCATION')),
                                                         key=f"up_from_loc_{selected_gcode}")
                         up_serial = st.text_input('SERIAL_NO verification:',
                                                   value=str(asset_row.get('SERIAL_NO', '')) if asset_row.get(
@@ -692,7 +702,6 @@ else:
                         st.error("Both Parameters are required.")
                     else:
                         try:
-                            # FIX: Target "asset_mappings" instead of non-existent "LOCATION_MAPPING"
                             supabase.table("asset_mappings").upsert(
                                 {"type": cfg_type, "model": cfg_model, "kva": cfg_kva},
                                 on_conflict="type,model"
@@ -836,7 +845,6 @@ else:
         if st.button("🔥 EXECUTE SYSTEM PURGE MANDATE", use_container_width=True, disabled=not confirm_purge,
                      key="execute_purge_btn_standalone"):
             with st.spinner("Wiping database tracking logs..."):
-                # FIX: Removed the incorrect 'key=' keyword parameter that caused a Python crash on execution
                 purge_result = delete_old_audit_logs(days_retention=retention_days, purge_all=purge_all_flag)
                 if purge_result["status"] == "success":
                     st.cache_data.clear()
