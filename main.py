@@ -18,32 +18,6 @@ st.set_page_config(
     layout="wide"
 )
 
-# -----------------------------------------------------------------
-# DYNAMIC USER REGISTRY LOADING
-# -----------------------------------------------------------------
-@st.cache_data(ttl=600)  # Caches for 10 minutes, clears on update
-def load_user_registry():
-    try:
-        res = supabase.table("USER_REGISTRY").select("user_name").order("user_name", ascending=True).execute()
-        if res.data:
-            return ['----'] + [row['user_name'] for row in res.data]
-        return ['----', 'ESP-KOC', 'JO-ESP', 'WORKSHOP'] # Fallback
-    except Exception as e:
-        return ['----', 'KOC', 'JOA', 'WORKSHOP'] # Fault safe fallback
-
-# Globally populated list used by all asset dropdown forms
-USER_LIST = load_user_registry()
-
-@st.cache_data(show_spinner=False)
-def inject_custom_css(css_file_path: str = "style.css"):
-    try:
-        with open(css_file_path, "r") as f:
-            css_style = f.read()
-        return f"<style>{css_style}</style>"
-    except FileNotFoundError:
-        return ""
-
-
 URL = st.secrets["SUPABASE_URL"]
 KEY = st.secrets["SUPABASE_KEY"]
 
@@ -54,6 +28,35 @@ def get_supabase_client() -> Client:
 
 
 supabase = get_supabase_client()
+
+
+# -----------------------------------------------------------------
+# DYNAMIC USER REGISTRY LOADING
+# -----------------------------------------------------------------
+@st.cache_data(ttl=600)  # Caches for 10 minutes, clears on update
+def load_user_registry():
+    try:
+        res = supabase.table("USER_REGISTRY").select("user_name").order("user_name", ascending=True).execute()
+        if res.data and len(res.data) > 0:
+            return ['----'] + [row['user_name'] for row in res.data]
+        return ['----', 'ESP-KOC', 'JO-ESP', 'WORKSHOP', 'BURGUN-YRD', 'MOBILE', 'OFF-HIRE']  # Sensible fallback
+    except Exception as e:
+        return ['----', 'ESP-KOC', 'JO-ESP', 'WORKSHOP','BURGUN','MOBILE','OFF-HIRE','ABDALY-FARM','READY','DESALTER-PROJECT',
+                'FIELD_OP.REPAIR','GAS-MITIGATION','MISHRIF','PDI','WS-POWER']  # Fault safe fallback
+
+
+# Globally populated list used by all asset dropdown forms (DO NOT OVERWRITE BELOW)
+USER_LIST = load_user_registry()
+
+
+@st.cache_data(show_spinner=False)
+def inject_custom_css(css_file_path: str = "style.css"):
+    try:
+        with open(css_file_path, "r") as f:
+            css_style = f.read()
+        return f"<style>{css_style}</style>"
+    except FileNotFoundError:
+        return ""
 
 
 # --- DATABASE CACHING UTILITIES ---
@@ -108,10 +111,8 @@ def delete_old_audit_logs(days_retention=30, purge_all=False):
         return {"status": "error", "message": str(err)}
 
 
-# Application Base Matrix Profiles
+#Application Base Matrix Profiles
 TRANS_LIST = ['----', 'NEW GENERATOR', 'DISPATCH', 'RECEIVED', 'INTERNAL-SHIFT']
-USER_LIST = ['----', 'ESP-KOC', 'JO-ESP', 'WORKSHOP', 'BURGUN-YRD', 'MOBILE', 'OFF-HIRE', 'ABDALY-FARM', 'READY',
-             'DESALTER-PROJECT', 'FIELD_OP.REPAR', 'GAS-MITIGATION', 'MISHRIF', 'PDI', 'WSH-POWER']
 
 
 # Zebra Striping Engine Function Matrix
@@ -228,7 +229,6 @@ else:
 
     @st.cache_data(ttl=10)
     def get_routing_matrix_df() -> pd.DataFrame:
-        """Fetches the live dynamic cascading routes from the database matrix."""
         try:
             res = supabase.table("field_routing_matrix").select("*").order("field_name").execute()
             df = pd.DataFrame(res.data)
@@ -245,8 +245,6 @@ else:
     routing_df = get_routing_matrix_df()
     LIVE_FIELD_OPTIONS = ['----'] + sorted(routing_df['field_name'].unique().tolist()) if not routing_df.empty else [
         '----']
-
-    # NEW DYNAMIC FROM_LOCATION POOL GENERATED DIRECTLY FROM TO_LOCATION DATA IN MATRIX
     MAPPED_LOCATIONS_POOL = ['----'] + sorted(
         routing_df['location_name'].dropna().unique().tolist()) if not routing_df.empty else ['----']
 
@@ -316,11 +314,11 @@ else:
                 v_abd = user_counts.get('ABDALY-FARM', 0)
                 v_RDY = user_counts.get('READY', 0)
                 v_DST = user_counts.get('DESALTER-PROJECT', 0)
-                v_FD = user_counts.get('FIELD_OP.REPAR', 0)
+                v_FD = user_counts.get('FIELD_OP.REPAIR', 0)
                 v_GAS = user_counts.get('GAS-MITIGATION', 0)
                 v_MHF = user_counts.get('MISHRIF', 0)
                 v_PDI = user_counts.get('PDI', 0)
-                v_WPP = user_counts.get('WSH-POWER', 0)
+                v_WPP = user_counts.get('WS-POWER', 0)
                 v_TT = len(df)
 
                 st.caption("QUICK ASSET ANALYSIS BY CURRENT USER")
@@ -343,7 +341,7 @@ else:
                     st.metric('MISHRIF', int(v_MHF), delta='+', delta_color="blue", border=True)
                 with col5:
                     st.metric('PDI', int(v_PDI), delta='+', delta_color="blue", border=True)
-                    st.metric('WSH-POWER', int(v_WPP), delta='+', delta_color="blue", border=True)
+                    st.metric('WS-POWER', int(v_WPP), delta='+', delta_color="blue", border=True)
                     st.metric('TOTAL', int(v_TT), delta='+', delta_color="blue", border=True)
             except Exception as e:
                 st.error(f"Error parsing status metrics: {e}")
@@ -383,7 +381,7 @@ else:
                                         key="add_kva_outside")
 
             st.markdown("---")
-            st.caption("Step 2: Complete Operational CASCADING Logistics Placement Metadata")
+            st.caption("Step 2: select field")
 
             cascade_col1, cascade_col2, cascade_col3 = st.columns(3)
             with cascade_col1:
@@ -406,8 +404,6 @@ else:
                 col1, col2, col3 = st.columns(3)
                 with col1:
                     u_transfer = st.selectbox('TRANSFER_STATUS:', options=TRANS_LIST, key="add_transfer")
-
-                    # DYNAMIC UPDATE: Pointed directly to MAPPED_LOCATIONS_POOL
                     u_from_location = st.selectbox('FROM_LOCATION:', options=MAPPED_LOCATIONS_POOL, key="add_from_loc")
                     g_code = st.text_input('G-CODE Identifier:', value='', key="add_gcode")
                 with col2:
@@ -531,7 +527,7 @@ else:
 
                 if model_key not in st.session_state:
                     st.session_state[model_key] = db_model if (
-                            current_type == db_type and db_model in up_allowed_models) else '----'
+                                current_type == db_type and db_model in up_allowed_models) else '----'
 
                 with st.form(key=f"ASSET_UPDATE_FORM_GROUP_{selected_gcode}"):
                     st.markdown("##### Configuration Fields")
@@ -564,7 +560,6 @@ else:
                                                index=get_index(USER_LIST, asset_row.get('USER')),
                                                key=f"up_user_{selected_gcode}")
 
-                        # New Input 1: PURPOSE (Slotted into Column 1)
                         PURPOSE_LIST = ['----', 'REPLACEMENT', 'NEW INSTALLATION', 'OFF-HIRE BACKLOAD']
                         db_purpose = str(asset_row.get('PURPOSE', '')).strip().upper()
                         up_purpose = st.selectbox(
@@ -590,7 +585,6 @@ else:
                         up_appr_kva = st.number_input('APPR_KVA verification:', min_value=0, value=current_appr_kva,
                                                       key=f"up_appr_{selected_gcode}", disabled=lock_engine_specs)
 
-                        # New Input 2: CREW (Slotted into Column 2)
                         try:
                             current_crew = int(float(asset_row.get('CREW', 0)))
                         except:
@@ -627,7 +621,6 @@ else:
                         up_move_date = st.date_input('MOVE_DATE:', value=safe_date(asset_row.get('MOVE_DATE')),
                                                      key=f"up_move_dt_{selected_gcode}")
 
-                        # New Input 3: GC (Slotted into Column 3)
                         try:
                             current_gc = int(float(asset_row.get('GC', 0)))
                         except:
@@ -676,8 +669,6 @@ else:
                                 'USER': up_user if up_user != '----' else old_snapshot.get('USER'),
                                 'MOVE_DATE': up_move_date.isoformat(),
                                 'REASON': up_reason,
-
-                                # Payload safely targets your database columns
                                 'PURPOSE': up_purpose if up_purpose != '----' else None,
                                 'CREW': up_crew,
                                 'GC': up_gc
@@ -737,8 +728,8 @@ else:
     # =====================================================================
     elif navigation_target == "SETTINGS":
         st.title("⚙️ System Operational Settings Configuration")
-        cfg_tab1, cfg_tab2, cfg_tab3,cfg_tab4 = st.tabs(
-            ["Active Models Mapping", "Upsert Model Profiles", "🛠️ MANAGE FIELD LOGISTICS REGISTRIES","USER UPDATE"])
+        cfg_tab1, cfg_tab2, cfg_tab3, cfg_tab4 = st.tabs(
+            ["Active Models Mapping", "Upsert Model Profiles", "🛠️ MANAGE FIELD LOGISTICS REGISTRIES", "USER UPDATE"])
 
         with cfg_tab1:
             st.caption("Active Mapping Rules Matrix (Loaded from Database)")
@@ -835,12 +826,7 @@ else:
                     st.info("No routing matrices available to drop.")
 
         with cfg_tab4:
-
-            with st.expander("USER SETTINGS", expanded=False):
-                # -----------------------------------------------------------------
-                # USER REGISTRY DICTIONARY UTILITY MANAGEMENT
-                # -----------------------------------------------------------------
-                st.markdown("---")
+            with st.expander("USER SETTINGS", expanded=True):
                 st.subheader("⚙️ User Assignment Registry Control")
                 st.caption("Add or decommission asset operators/users without modifying application source code.")
 
@@ -848,7 +834,7 @@ else:
 
                 with reg_col1:
                     st.markdown("##### Add New Registry Entry")
-                    new_reg_user = st.text_input("Operator / User Name Name:", key="new_user_reg_input").strip().upper()
+                    new_reg_user = st.text_input("Operator / User Name:", key="new_user_reg_input").strip().upper()
                     if st.button("➕ Register User", use_container_width=True):
                         if not new_reg_user or new_reg_user == '----':
                             st.warning("Please type a valid user identification string.")
@@ -856,15 +842,16 @@ else:
                             try:
                                 supabase.table("USER_REGISTRY").insert({'user_name': new_reg_user}).execute()
                                 st.success(f"'{new_reg_user}' integrated successfully!")
-                                st.cache_data.clear()  # Clears cache to instantly refresh the dropdowns
+                                st.cache_data.clear()
                                 st.rerun()
                             except Exception as err:
                                 st.error(f"Failed to write record: {err}")
 
                 with reg_col2:
                     st.markdown("##### Delete Registry Entry")
-                    # Exclude the structural placeholder '----' from deletion options
-                    deletion_options = [u for u in USER_LIST if u != '----']
+                    # Force dynamic evaluation from dynamic function context
+                    current_live_users = load_user_registry()
+                    deletion_options = [u for u in current_live_users if u != '----']
                     user_to_delete = st.selectbox("Select User to Remove:", options=deletion_options,
                                                   key="delete_user_reg_select")
 
@@ -873,10 +860,11 @@ else:
                             try:
                                 supabase.table("USER_REGISTRY").delete().eq('user_name', user_to_delete).execute()
                                 st.success(f"'{user_to_delete}' purged from central systems.")
-                                st.cache_data.clear()  # Clears cache to instantly refresh the dropdowns
+                                st.cache_data.clear()
                                 st.rerun()
                             except Exception as err:
                                 st.error(f"Failed to drop database link: {err}")
+
     # =====================================================================
     # 4. SYSTEM ADMINISTRATIVE AUDIT MONITOR LOGS
     # =====================================================================
@@ -961,18 +949,13 @@ else:
     # =====================================================================
     elif navigation_target == "WORKSHOP":
         st.info("Workshop processing terminal interface modules pending development configurations.")
-
     elif navigation_target == "STORES & PARTS":
         st.info("Stores and raw components logistics management ledger pending implementation sync.")
-
     elif navigation_target == "MAINTENANCE":
         st.info("Maintenance schedules workflow manager pending engineering configuration.")
-
     elif navigation_target == "FLEET MANAGEMENT":
         st.info("Fleet operational telemetry maps overview profiles pending compilation.")
-
     elif navigation_target == "REMOTE TELEMETRY":
         st.info("Scada/IoT streaming pipeline processing endpoints interface metrics offline.")
-
     elif navigation_target == "REPORTS":
         st.info("System reports compilation generation platform routing setup offline.")
