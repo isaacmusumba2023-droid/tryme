@@ -359,7 +359,7 @@ else:
         with tab1:
             if not df.empty:
                 designed_assets_df = df.style.apply(style_zebra_rows, axis=None)
-                st.dataframe(designed_assets_df, use_container_width=True, hide_index=True)
+                st.dataframe(designed_assets_df, use_container_width=True, hide_index=True,height=700)
             else:
                 st.info("No equipment inventory assets found inside database registries.")
 
