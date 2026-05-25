@@ -298,13 +298,54 @@ else:
         st.rerun()
 
     # =====================================================================
-    # 1. GENERAL ASSETS RUNTIME VIEWPORT
+    # 1. GENERAL_ASSETS RUNTIME VIEWPORT (UPGRADED WITH POWER BI FEATURES)
     # =====================================================================
     if navigation_target == "GENERAL_ASSETS":
         df = get_assets_df()
         if not df.empty:
             try:
-                user_counts = df['USER'].value_counts()
+                import plotly.express as px
+                import pandas as pd
+
+                # --- CRITICAL: SANITIZE DATA TYPES TO PREVENT RUNTIME ERRORS ---
+                if 'GEN_KVA' in df.columns:
+                    # Coerce errors to NaN, then replace NaN with 0 before converting to integer
+                    df['GEN_KVA'] = pd.to_numeric(df['GEN_KVA'], errors='coerce').fillna(0).astype(int)
+
+                if 'RUN_HRS' in df.columns:
+                    df['RUN_HRS'] = pd.to_numeric(df['RUN_HRS'], errors='coerce').fillna(0)
+
+                # --- POWER BI FEATURE 1: DYNAMIC SIDEBAR FILTER SLICERS ---
+                st.sidebar.markdown("---")
+                st.sidebar.markdown("### 📊 Dashboard Slicers")
+
+                # Slicer 1: Generator Type Selector
+                available_types = ['ALL'] + sorted(df['TYPE'].dropna().unique().tolist()) if 'TYPE' in df.columns else [
+                    'ALL']
+                selected_type = st.sidebar.selectbox("Filter by Generator Type:", options=available_types,
+                                                     key="bi_slicer_type")
+
+                # Slicer 2: KVA Rating Range Slider
+                if 'GEN_KVA' in df.columns and len(df) > 0:
+                    min_kva_val = int(df['GEN_KVA'].min())
+                    max_kva_val = int(df['GEN_KVA'].max())
+                    # Fallback if min equals max
+                    if min_kva_val == max_kva_val:
+                        max_kva_val = min_kva_val + 10
+                    selected_kva_range = st.sidebar.slider("Filter by KVA Power Range:", min_kva_val, max_kva_val,
+                                                           (min_kva_val, max_kva_val), key="bi_slicer_kva")
+                else:
+                    selected_kva_range = (0, 10000)
+
+                # --- APPLY CROSS-FILTERING TO DATAFRAME DYNAMICALLY ---
+                if selected_type != 'ALL':
+                    df = df[df['TYPE'] == selected_type]
+
+                if 'GEN_KVA' in df.columns:
+                    df = df[(df['GEN_KVA'] >= selected_kva_range[0]) & (df['GEN_KVA'] <= selected_kva_range[1])]
+
+                # --- RE-CALCULATE METRICS BASED ON FILTERED DATAFRAME ---
+                user_counts = df['USER'].value_counts() if 'USER' in df.columns else pd.Series()
                 v_ESP = user_counts.get('ESP-KOC', 0)
                 v_WHP = user_counts.get('WORKSHOP', 0)
                 v_JO = user_counts.get('JO-ESP', 0)
@@ -314,6 +355,8 @@ else:
                 v_abd = user_counts.get('ABDALY-FARM', 0)
                 v_RDY = user_counts.get('READY', 0)
                 v_DST = user_counts.get('DESALTER-PROJECT', 0)
+
+                # Fixed Key String matching the dictionary below ('FIELD-OP/REPAIR')
                 v_FD = user_counts.get('FIELD_OP.REPAIR', 0)
                 v_GAS = user_counts.get('GAS-MITIGATION', 0)
                 v_MHF = user_counts.get('MISHRIF', 0)
@@ -321,32 +364,107 @@ else:
                 v_WPP = user_counts.get('WS-POWER', 0)
                 v_TT = len(df)
 
-                st.caption("QUICK ASSET ANALYSIS BY CURRENT USER")
+                # --- POWER BI FEATURE 2: HIGH-LEVEL EXECUTIVE SUMMARY KPI CARDS ---
+                total_kva = df['GEN_KVA'].sum() if 'GEN_KVA' in df.columns else 0
+                avg_runtime = df['RUN_HRS'].mean() if 'RUN_HRS' in df.columns else 0
+
+                st.caption("📊 Quick Fleet Metrics Analysis")
+                kpi1, kpi2, kpi3 = st.columns(3)
+                with kpi1:
+                    st.metric(label="📟 TOTAL ACTIVE FLEET", value=f"{v_TT:,} Units", border=True)
+                with kpi2:
+                    st.metric(label="⚡ TOTAL ACCUMULATED CAPACITY", value=f"{total_kva:,} KVA", border=True)
+                with kpi3:
+                    st.metric(label="⏳ AVG FLEET RUNNING HOURS",
+                              value=f"{int(avg_runtime):,} Hrs" if pd.notna(avg_runtime) else "0 Hrs", border=True)
+
+                st.markdown("---")
+
+                # --- POWER BI FEATURE 3: SIDE-BY-SIDE INTERACTIVE VISUALS ---
+                chart_col1, chart_col2 = st.columns([2, 3])
+
+                with chart_col1:
+                    st.markdown("##### 🍩 Fleet Distribution (USER / STATUS)")
+                    if v_TT > 0:
+                        status_map = {
+                            'ESP-KOC': v_ESP, 'WORKSHOP': v_WHP, 'JO-ESP': v_JO,
+                            'BURGUN-YRD': v_BYRD, 'MOBILE': v_MBL, 'OFF-HIRE': v_OFF,
+                            'ABDALY-FARM': v_abd, 'READY': v_RDY, 'DESALTER-PROJECT': v_DST,
+                            'FIELD-OP/REPAIR': v_FD, 'GAS-MITIGATION': v_GAS, 'MISHRIF': v_MHF,
+                            'PDI': v_PDI, 'WS-POWER': v_WPP
+                        }
+                        chart_df = pd.DataFrame(list(status_map.items()), columns=['Operational Group', 'Count'])
+                        chart_df = chart_df[chart_df['Count'] > 0]
+
+                        if not chart_df.empty:
+                            fig_donut = px.pie(
+                                chart_df,
+                                names='Operational Group',
+                                values='Count',
+                                hole=0.45,
+                                color_discrete_sequence=px.colors.qualitative.Pastel
+                            )
+                            fig_donut.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=320, showlegend=True)
+                            st.plotly_chart(fig_donut, use_container_width=True)
+                        else:
+                            st.info("No active units split within selection categories.")
+                    else:
+                        st.info("No data available within selection filters.")
+
+                with chart_col2:
+                    st.markdown("##### 📊 Capacity Allocation Matrix By Field Location")
+                    if v_TT > 0 and 'FIELD' in df.columns and 'GEN_KVA' in df.columns:
+                        field_kva_df = df.groupby('FIELD')['GEN_KVA'].sum().reset_index()
+                        field_kva_df = field_kva_df[field_kva_df['FIELD'] != '----']
+                        field_kva_df = field_kva_df.sort_values(by='GEN_KVA', ascending=True)
+
+                        fig_bar = px.bar(
+                            field_kva_df,
+                            x='GEN_KVA',
+                            y='FIELD',
+                            orientation='h',
+                            color='GEN_KVA',
+                            color_continuous_scale='Blues',
+                            labels={'GEN_KVA': 'Total Capacity (KVA)', 'FIELD': 'Field Assignment'}
+                        )
+                        fig_bar.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=320,
+                                              coloraxis_showscale=False)
+                        st.plotly_chart(fig_bar, use_container_width=True)
+                    else:
+                        st.info("No field assignments match filtering constraints.")
+
+                st.markdown("---")
+                st.markdown("##### 📋 Live Filtered Record Viewport")
+
+                # --- RENDER EXPANDER METRICS BREAKDOWNS ---
+
                 col1, col2, col3, col4, col5 = st.columns(5)
                 with col1:
-                    st.metric('ESP-KOC', int(v_ESP), delta='+', delta_color="blue", border=True)
-                    st.metric('WORKSHOP', int(v_WHP), delta='+', delta_color="blue", border=True)
-                    st.metric('JO-ESP', int(v_JO), delta='+', delta_color="blue", border=True)
+                    st.metric('ESP-KOC', int(v_ESP))
+                    st.metric('WORKSHOP', int(v_WHP))
+                    st.metric('JO-ESP', int(v_JO))
                 with col2:
-                    st.metric('BURGUN-YRD', int(v_BYRD), delta='+', delta_color="blue", border=True)
-                    st.metric('MOBILE', int(v_MBL), delta='+', delta_color="blue", border=True)
-                    st.metric('OFF-HIRE', int(v_OFF), delta='+', delta_color="blue", border=True)
+                    st.metric('BURGUN-YRD', int(v_BYRD))
+                    st.metric('MOBILE', int(v_MBL))
+                    st.metric('OFF-HIRE', int(v_OFF))
                 with col3:
-                    st.metric('ABDALY-FARM', int(v_abd), delta='+', delta_color="blue", border=True)
-                    st.metric('READY', int(v_RDY), delta='+', delta_color="blue", border=True)
-                    st.metric('DESALTER-PROJECT', int(v_DST), delta='+', delta_color="blue", border=True)
+                    st.metric('ABDALY-FARM', int(v_abd))
+                    st.metric('READY', int(v_RDY))
+                    st.metric('DESALTER-PROJECT', int(v_DST))
                 with col4:
-                    st.metric('FIELD-OP/REPAR', int(v_FD), delta='+', delta_color="blue", border=True)
-                    st.metric('GAS-MITIGATION', int(v_GAS), delta='+', delta_color="blue", border=True)
-                    st.metric('MISHRIF', int(v_MHF), delta='+', delta_color="blue", border=True)
+                    st.metric('FIELD_OP.REPAIR', int(v_FD))
+                    st.metric('GAS-MITIGATION', int(v_GAS))
+                    st.metric('MISHRIF', int(v_MHF))
                 with col5:
-                    st.metric('PDI', int(v_PDI), delta='+', delta_color="blue", border=True)
-                    st.metric('WS-POWER', int(v_WPP), delta='+', delta_color="blue", border=True)
-                    st.metric('TOTAL', int(v_TT), delta='+', delta_color="blue", border=True)
+                    st.metric('PDI', int(v_PDI))
+                    st.metric('WS-POWER', int(v_WPP))
+                    st.metric('FILTERED TOTAL', int(v_TT))
+
             except Exception as e:
                 st.error(f"Error parsing status metrics: {e}")
         else:
-            st.info("No corporate equipment assets found inside database inventory.")
+            st.info("No equipment inventory assets found inside database registries.")
+
 
     # =====================================================================
     # 2. ASSET MANAGEMENT ACTIONS ENGINE
@@ -944,9 +1062,9 @@ else:
                 else:
                     st.error(f"Purge process failure: {purge_result.get('message')}")
 
-    # =====================================================================
-    # 5. UNIMPLEMENTED PLACEHOLDER ROUTING TARGETS
-    # =====================================================================
+        # =====================================================================
+        # 5. UNIMPLEMENTED PLACEHOLDER ROUTING TARGETS
+        # =====================================================================
     elif navigation_target == "WORKSHOP":
         st.info("Workshop processing terminal interface modules pending development configurations.")
     elif navigation_target == "STORES & PARTS":
