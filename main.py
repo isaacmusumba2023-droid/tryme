@@ -1861,99 +1861,93 @@ else:
                 )
 
             elif export_mode == "Print-Ready Document (.pdf)":
-                def generate_fleet_pdf(dataframe, user_scope):
-                    from fpdf import FPDF
+            def generate_fleet_pdf(dataframe, user_scope):
+                from fpdf import FPDF
 
-                    class CustomFleetPDF(FPDF):
-                        def header(self):
-                            self.set_fill_color(27, 54, 93)
-                            self.rect(10, 10, 277, 24, "F")
-                            self.set_text_color(255, 255, 255)
-                            self.set_font("Helvetica", "B", 13)
-                            self.set_y(14)
-                            self.cell(0, 8, "   FIELD OPERATIONS FLEET SUMMARY REPORT", ln=True)
-                            self.set_font("Helvetica", "I", 9)
-                            self.cell(0, 4,
-                                      f"   Generated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')} | Scope: {user_scope}",
-                                      ln=True)
-                            # Set Y position directly down to table space layout (omitting KPIs space completely)
-                            self.set_y(40)
+                class CustomFleetPDF(FPDF):
+                    def header(self):
+                        self.set_fill_color(27, 54, 93)
+                        self.rect(10, 10, 277, 24, "F")
+                        self.set_text_color(255, 255, 255)
+                        self.set_font("Helvetica", "B", 13)
+                        self.set_y(14)
+                        self.cell(0, 8, "   FIELD OPERATIONS FLEET SUMMARY REPORT", ln=True)
+                        self.set_font("Helvetica", "I", 9)
+                        self.cell(0, 4, f"   Generated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')} | Scope: {user_scope}", ln=True)
+                        self.set_y(40)
 
-                        def footer(self):
-                            self.set_y(-15)
-                            self.set_font("Helvetica", "I", 8)
-                            self.set_text_color(128, 128, 128)
-                            self.cell(0, 10, f"Page {self.page_no()}/{{nb}}", align="C")
+                    def footer(self):
+                        self.set_y(-15)
+                        self.set_font("Helvetica", "I", 8)
+                        self.set_text_color(128, 128, 128)
+                        self.cell(0, 10, f"Page {self.page_no()}/{{nb}}", align="C")
 
-                    pdf = CustomFleetPDF(orientation="L", unit="mm", format="A4")
-                    pdf.alias_nb_pages()
-                    pdf.add_page()
+                pdf = CustomFleetPDF(orientation="L", unit="mm", format="A4")
+                pdf.alias_nb_pages()
+                pdf.add_page()
 
-                    # --- 💡 FIXED: METRICS BLOCKS REMOVED HERE ---
-                    # The data table starts directly at coordinate position Y=42
-                    pdf.set_xy(10, 42)
-                    pdf.set_fill_color(27, 54, 93)
-                    pdf.set_text_color(255, 255, 255)
-                    pdf.set_font("Helvetica", "B", 8)
+                # Table headers start directly here without metric cards
+                pdf.set_xy(10, 42)
+                pdf.set_fill_color(27, 54, 93)
+                pdf.set_text_color(255, 255, 255)
+                pdf.set_font("Helvetica", "B", 8)
 
-                    col_widths = [16, 23, 19, 14, 15, 28, 30, 38, 50, 44]
-                    headers = ["G-CODE", "TYPE", "MODEL", "KVA", "HOURS", "STATUS/USER", "FIELD SITE", "TRANSFER STAT",
-                               "LOGGED REASON", "PURPOSE TARGET"]
+                col_widths = [16, 23, 19, 14, 15, 28, 30, 38, 50, 44]
+                headers = ["G-CODE", "TYPE", "MODEL", "KVA", "HOURS", "STATUS/USER", "FIELD SITE", "TRANSFER STAT", "LOGGED REASON", "PURPOSE TARGET"]
 
-                    for w, h in zip(col_widths, headers):
-                        pdf.cell(w, 8, h, border=1, align="C", fill=True)
-                    pdf.ln()
+                for w, h in zip(col_widths, headers):
+                    pdf.cell(w, 8, h, border=1, align="C", fill=True)
+                pdf.ln()
 
-                    pdf.set_font("Helvetica", "", 7.5)
-                    pdf.set_text_color(50, 50, 50)
+                pdf.set_font("Helvetica", "", 7.5)
+                pdf.set_text_color(50, 50, 50)
 
-                    fill_toggle = False
-                    for index, row in dataframe.iterrows():
-                        # Handle page overflow bounds natively
-                        if pdf.get_y() > 180:
-                            pdf.add_page()
-                            pdf.set_xy(10, 42)
-                            pdf.set_fill_color(27, 54, 93)
-                            pdf.set_text_color(255, 255, 255)
-                            pdf.set_font("Helvetica", "B", 8)
-                            for w, h in zip(col_widths, headers):
-                                pdf.cell(w, 8, h, border=1, align="C", fill=True)
-                            pdf.ln()
-                            pdf.set_font("Helvetica", "", 7.5)
-                            pdf.set_text_color(50, 50, 50)
-
-                        pdf.set_fill_color(247, 249, 251) if fill_toggle else pdf.set_fill_color(255, 255, 255)
-
-                        pdf.cell(col_widths[0], 7, safe_str(row.get('G-CODE')), border=1, fill=True, align="C")
-                        pdf.cell(col_widths[1], 7, safe_str(row.get('TYPE'))[:14], border=1, fill=True)
-                        pdf.cell(col_widths[2], 7, safe_str(row.get('MODEL'))[:12], border=1, fill=True)
-                        pdf.cell(col_widths[3], 7, f"{int(row.get('GEN_KVA', 0)):,}", border=1, fill=True, align="R")
-                        pdf.cell(col_widths[4], 7, f"{int(row.get('RUN_HRS', 0)):,}", border=1, fill=True, align="R")
-                        pdf.cell(col_widths[5], 7, safe_str(row.get('USER'))[:18], border=1, fill=True)
-                        pdf.cell(col_widths[6], 7, safe_str(row.get('FIELD'))[:18], border=1, fill=True)
-                        pdf.cell(col_widths[7], 7, safe_str(row.get('TO_LOCATION'))[:22], border=1, fill=True)
-                        pdf.cell(col_widths[8], 7, safe_str(row.get('REASON'))[:32], border=1, fill=True)
-
-                        p_val = row.get('PURPOSE', row.get('REMARKS', '-'))
-                        pdf.cell(col_widths[9], 7, safe_str(p_val)[:26], border=1, fill=True)
-
+                fill_toggle = False
+                for index, row in dataframe.iterrows():
+                    if pdf.get_y() > 180:
+                        pdf.add_page()
+                        pdf.set_xy(10, 42)
+                        pdf.set_fill_color(27, 54, 93)
+                        pdf.set_text_color(255, 255, 255)
+                        pdf.set_font("Helvetica", "B", 8)
+                        for w, h in zip(col_widths, headers):
+                            pdf.cell(w, 8, h, border=1, align="C", fill=True)
                         pdf.ln()
-                        fill_toggle = not fill_toggle
+                        pdf.set_font("Helvetica", "", 7.5)
+                        pdf.set_text_color(50, 50, 50)
 
-                    return bytes(pdf.output())
+                    pdf.set_fill_color(247, 249, 251) if fill_toggle else pdf.set_fill_color(255, 255, 255)
 
+                    pdf.cell(col_widths[0], 7, safe_str(row.get('G-CODE')), border=1, fill=True, align="C")
+                    pdf.cell(col_widths[1], 7, safe_str(row.get('TYPE'))[:14], border=1, fill=True)
+                    pdf.cell(col_widths[2], 7, safe_str(row.get('MODEL'))[:12], border=1, fill=True)
+                    pdf.cell(col_widths[3], 7, f"{int(row.get('GEN_KVA', 0)):,}", border=1, fill=True, align="R")
+                    pdf.cell(col_widths[4], 7, f"{int(row.get('RUN_HRS', 0)):,}", border=1, fill=True, align="R")
+                    pdf.cell(col_widths[5], 7, safe_str(row.get('USER'))[:18], border=1, fill=True)
+                    pdf.cell(col_widths[6], 7, safe_str(row.get('FIELD'))[:18], border=1, fill=True)
+                    pdf.cell(col_widths[7], 7, safe_str(row.get('TO_LOCATION'))[:22], border=1, fill=True)
+                    pdf.cell(col_widths[8], 7, safe_str(row.get('REASON'))[:32], border=1, fill=True)
+                   
+                    p_val = row.get('PURPOSE', row.get('REMARKS', '-'))
+                    pdf.cell(col_widths[9], 7, safe_str(p_val)[:26], border=1, fill=True)
+                   
+                    pdf.ln()
+                    fill_toggle = not fill_toggle
 
-                if filtered_report_df.empty:
-                    st.warning("⚠️ No database items match your current filter parameters to render onto a PDF canvas.")
-                else:
-                    pdf_data = generate_fleet_pdf(filtered_report_df, selected_report_user)
-                    st.download_button(
-                        label="🔴 DOWNLOAD PRINT-READY REPORT DOCUMENT (.PDF)",
-                        data=pdf_data,
-                        file_name=f"Executive_Fleet_Report_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
-                        mime="application/pdf",
-                        use_container_width=True
-                    )
+                # 💡 FIX: Safely grab raw string bytes directly from the compilation layer
+                return pdf.output(dest='S').encode('latin-1')
+
+            if filtered_report_df.empty:
+                st.warning("⚠️ No database items match your current filter parameters to render onto a PDF canvas.")
+            else:
+                pdf_data = generate_fleet_pdf(filtered_report_df, selected_report_user)
+                st.download_button(
+                    label="🔴 DOWNLOAD PRINT-READY REPORT DOCUMENT (.PDF)",
+                    data=pdf_data,
+                    file_name=f"Executive_Fleet_Report_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
 
             st.markdown("---")
 
