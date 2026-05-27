@@ -467,8 +467,8 @@ else:
     # =====================================================================
     elif navigation_target == "ASSET MANAGEMENT":
         df = get_assets_df()
-        tab1, tab2, tab3, tab4, tab5 = st.tabs(
-            ['ASSETS_VIEW', 'ADD_ASSET', 'UPDATE_ASSET', 'DELETE_ASSET', 'AUDIT LOGS'])
+        tab1, tab2, tab3, tab4, tab5 ,tab6= st.tabs(
+            ['ASSETS_VIEW', 'ADD_ASSET', 'UPDATE_ASSET', 'DELETE_ASSET', 'AUDIT LOGS','ASSET-SPECTS'])
 
         with tab1:
             if not df.empty:
@@ -1026,6 +1026,108 @@ else:
 
             else:
                 st.info("No audit transactions logged inside tracking structures yet.")
+
+        with tab6:
+            st.markdown("##### 🛠️ GENSET- PROFILE AS SELECTED  G-CODE")
+            st.caption("Real-time monitoring, diagnostic breakdowns, and maintenance lifecycles for field operations assets")
+
+            # --- 1. DATAFRAME INGESTION & LIFECYCLE ---
+            try:
+                fleet_df = get_assets_df()
+            except Exception as e:
+                st.error(f"Error fetching workshop data streams: {e}")
+                fleet_df = pd.DataFrame()
+
+            if not fleet_df.empty:
+                # --- SANITIZE NUMERICAL COLUMNS FOR AGGREGATION ACCURACY ---
+                if 'GEN_KVA' in fleet_df.columns:
+                    fleet_df['GEN_KVA'] = pd.to_numeric(fleet_df['GEN_KVA'], errors='coerce').fillna(0).astype(int)
+                if 'RUN_HRS' in fleet_df.columns:
+                    fleet_df['RUN_HRS'] = pd.to_numeric(fleet_df['RUN_HRS'], errors='coerce').fillna(0).astype(int)
+
+
+                # Safe String Transformer utility locally scoped to block character exceptions
+                def safe_str(val):
+                    if val is None or pd.isna(val) or str(val).strip().upper() == "NONE":
+                        return "-"
+                    return str(val).strip().encode('ascii', 'ignore').decode('ascii')
+
+
+                # --- 2. G-CODE SINGLE ASSET DRILLDOWN SEARCH BAR ---
+                st.caption("##### 🎯 Single Asset current data:")
+
+                # Create a clean searchable dropdown of all valid G-Codes
+                all_gcodes = ["--- SELECT A SPECIFIC G-CODE FOR FULL PROFILE ---"] + sorted(
+                    fleet_df['G-CODE'].dropna().unique().tolist()
+                )
+
+                selected_gcode_focus = st.selectbox(
+                    "Isolate a specific Asset Profile by G-CODE:",
+                    options=all_gcodes,
+                    key="fm_gcode_focus_dropdown"
+                )
+
+                # Check if the user has locked onto a specific G-CODE
+                if selected_gcode_focus != "--- SELECT A SPECIFIC G-CODE FOR FULL PROFILE ---":
+                    # Isolate the exact matching asset record row
+                    isolated_asset_df = fleet_df[fleet_df['G-CODE'] == selected_gcode_focus]
+
+                    if not isolated_asset_df.empty:
+                        asset_row = isolated_asset_df.iloc[0]
+
+                        # Render an elegant, high-visibility title header banner for the selected vehicle
+                        st.caption(f" 📋 Full Profile File: {selected_gcode_focus}")
+
+                        # Row 1: Status Badges and Core Spec Metrics
+                        prof_stage = safe_str(asset_row.get('USER'))
+                        prof_fault = safe_str(asset_row.get('REASON'))
+
+                        status_color = "green" if "READY" in prof_stage.upper() or "COMPLETED" in prof_stage.upper() else (
+                            "orange" if "QC" in prof_stage.upper() else "blue")
+                        st.markdown(
+                            f"**Current Status:** :{status_color}[**{prof_stage}**] | **Primary Diagnostics:** *{prof_fault}*")
+
+                        # Draw a neat progress tracker visual for the vehicle's progress
+                        progress_val = 1.0 if "READY" in prof_stage.upper() or "COMPLETED" in prof_stage.upper() else (
+                            0.7 if "QC" in prof_stage.upper() else (0.4 if "REPAIR" in prof_stage.upper() else 0.1))
+                        st.progress(progress_val)
+
+                        st.caption("#### 🔍 Master Specifications Card")
+
+                        # Split layout blocks to reveal all database columns mapped natively
+                        card_col1, card_col2, card_col3 = st.columns(3)
+
+                        with card_col1:
+                            st.info("⚙️ Mechanical Inventory Spec")
+                            st.markdown(f"**Asset Code (G-CODE):** `{safe_str(asset_row.get('G-CODE'))}`")
+                            st.markdown(f"**GEN_TYPE:** {safe_str(asset_row.get('TYPE'))}")
+                            st.markdown(f"**GEN_Model:** {safe_str(asset_row.get('MODEL'))}")
+                            st.markdown(f"**Capacity Rating:** {int(asset_row.get('GEN_KVA', 0)):,} KVA")
+                            st.markdown(f"**Operating Timeline:** {int(asset_row.get('RUN_HRS', 0)):,} Hours")
+
+                        with card_col2:
+                            st.warning("🔧 Workshop Workshop Diagnostics")
+                            st.markdown(f"**Assigned Stage:** `{prof_stage}`")
+                            st.markdown(f"**FIELD_LOCATION:** {safe_str(asset_row.get('FIELD'))}")
+                            st.markdown(f"**Reported Mechanical Issue:** *{prof_fault}*")
+
+                            # Fetch comments dynamically from PURPOSE or REMARKS rows safely
+                            p_notes = asset_row.get('PURPOSE', asset_row.get('REMARKS', '-'))
+                            st.markdown(f"**Technician Maintenance Action Logs:** {safe_str(p_notes)}")
+
+                        with card_col3:
+                            st.success("🚚 Dispatch & Logistics Targets")
+                            st.markdown(f"**Target Site Post-Repair:** {safe_str(asset_row.get('TO_LOCATION'))}")
+                            if 'MOVE_DATE' in asset_row:
+                                st.markdown(f"**Last Movement Log Timestamp:** {safe_str(asset_row.get('MOVE_DATE'))}")
+                            if 'SERIAL_NO' in asset_row or 'SERIAL' in asset_row:
+                                s_val = asset_row.get('SERIAL_NO', asset_row.get('SERIAL', '-'))
+                                st.markdown(f"**Chassis / Engine Serial No:** `{safe_str(s_val)}`")
+
+                        # Provide a quick exit pathway button to jump back out to global view mode instantly
+                        if st.button("⬅️ Back to Global Workshop Fleet Overview Table", use_container_width=True):
+                            st.rerun()
+
 
     # =====================================================================
     # 3. SETTINGS MATRIX PLATFORM
@@ -1633,8 +1735,10 @@ else:
     #======================================================================================================
     elif navigation_target == "MAINTENANCE":
         st.info("Maintenance schedules workflow manager pending engineering configuration.")
+    #=============================================================================================
     elif navigation_target == "FLEET MANAGEMENT":
-        st.info("Fleet operational telemetry maps overview profiles pending compilation.")
+        st.info("Fleet management pending engineering configuration.")
+
     elif navigation_target == "REMOTE TELEMETRY":
         st.info("Scada/IoT streaming pipeline processing endpoints interface metrics offline.")
     #=======================================================================================================
