@@ -35,6 +35,7 @@ supabase = get_supabase_client()
 # -----------------------------------------------------------------
 @st.cache_data(ttl=600)  # Caches for 10 minutes, clears on update
 def load_user_registry():
+
     try:
         res = supabase.table("USER_REGISTRY").select("user_name").order("user_name", ascending=True).execute()
         if res.data and len(res.data) > 0:
@@ -309,7 +310,6 @@ else:
 
                 # --- CRITICAL: SANITIZE DATA TYPES TO PREVENT RUNTIME ERRORS ---
                 if 'GEN_KVA' in df.columns:
-                    # Coerce errors to NaN, then replace NaN with 0 before converting to integer
                     df['GEN_KVA'] = pd.to_numeric(df['GEN_KVA'], errors='coerce').fillna(0).astype(int)
 
                 if 'RUN_HRS' in df.columns:
@@ -329,7 +329,6 @@ else:
                 if 'GEN_KVA' in df.columns and len(df) > 0:
                     min_kva_val = int(df['GEN_KVA'].min())
                     max_kva_val = int(df['GEN_KVA'].max())
-                    # Fallback if min equals max
                     if min_kva_val == max_kva_val:
                         max_kva_val = min_kva_val + 10
                     selected_kva_range = st.sidebar.slider("Filter by KVA Power Range:", min_kva_val, max_kva_val,
@@ -355,8 +354,6 @@ else:
                 v_abd = user_counts.get('ABDALY-FARM', 0)
                 v_RDY = user_counts.get('READY', 0)
                 v_DST = user_counts.get('DESALTER-PROJECT', 0)
-
-                # Fixed Key String matching the dictionary below ('FIELD-OP/REPAIR')
                 v_FD = user_counts.get('FIELD_OP.REPAIR', 0)
                 v_GAS = user_counts.get('GAS-MITIGATION', 0)
                 v_MHF = user_counts.get('MISHRIF', 0)
@@ -380,6 +377,32 @@ else:
 
                 st.markdown("---")
 
+                # --- 💡 MOVED UP: LIVE RECORD VIEWPORT METRICS BREAKDOWN ---
+                st.markdown("##### 📋 Live Filtered Record Viewport Summary")
+                col1, col2, col3, col4, col5 = st.columns(5)
+                with col1:
+                    st.metric('ESP-KOC', int(v_ESP))
+                    st.metric('WORKSHOP', int(v_WHP))
+                    st.metric('JO-ESP', int(v_JO))
+                with col2:
+                    st.metric('BURGUN-YRD', int(v_BYRD))
+                    st.metric('MOBILE', int(v_MBL))
+                    st.metric('OFF-HIRE', int(v_OFF))
+                with col3:
+                    st.metric('ABDALY-FARM', int(v_abd))
+                    st.metric('READY', int(v_RDY))
+                    st.metric('DESALTER-PROJECT', int(v_DST))
+                with col4:
+                    st.metric('FIELD_OP.REPAIR', int(v_FD))
+                    st.metric('GAS-MITIGATION', int(v_GAS))
+                    st.metric('MISHRIF', int(v_MHF))
+                with col5:
+                    st.metric('PDI', int(v_PDI))
+                    st.metric('WS-POWER', int(v_WPP))
+                    st.metric('FILTERED TOTAL', int(v_TT))
+
+                st.markdown("---")
+
                 # --- POWER BI FEATURE 3: SIDE-BY-SIDE INTERACTIVE VISUALS ---
                 chart_col1, chart_col2 = st.columns([2, 3])
 
@@ -390,7 +413,7 @@ else:
                             'ESP-KOC': v_ESP, 'WORKSHOP': v_WHP, 'JO-ESP': v_JO,
                             'BURGUN-YRD': v_BYRD, 'MOBILE': v_MBL, 'OFF-HIRE': v_OFF,
                             'ABDALY-FARM': v_abd, 'READY': v_RDY, 'DESALTER-PROJECT': v_DST,
-                            'FIELD-OP/REPAIR': v_FD, 'GAS-MITIGATION': v_GAS, 'MISHRIF': v_MHF,
+                            'FIELD_OP.REPAIR': v_FD, 'GAS-MITIGATION': v_GAS, 'MISHRIF': v_MHF,
                             'PDI': v_PDI, 'WS-POWER': v_WPP
                         }
                         chart_df = pd.DataFrame(list(status_map.items()), columns=['Operational Group', 'Count'])
@@ -432,33 +455,6 @@ else:
                         st.plotly_chart(fig_bar, use_container_width=True)
                     else:
                         st.info("No field assignments match filtering constraints.")
-
-                st.markdown("---")
-                st.markdown("##### 📋 Live Filtered Record Viewport")
-
-                # --- RENDER EXPANDER METRICS BREAKDOWNS ---
-
-                col1, col2, col3, col4, col5 = st.columns(5)
-                with col1:
-                    st.metric('ESP-KOC', int(v_ESP))
-                    st.metric('WORKSHOP', int(v_WHP))
-                    st.metric('JO-ESP', int(v_JO))
-                with col2:
-                    st.metric('BURGUN-YRD', int(v_BYRD))
-                    st.metric('MOBILE', int(v_MBL))
-                    st.metric('OFF-HIRE', int(v_OFF))
-                with col3:
-                    st.metric('ABDALY-FARM', int(v_abd))
-                    st.metric('READY', int(v_RDY))
-                    st.metric('DESALTER-PROJECT', int(v_DST))
-                with col4:
-                    st.metric('FIELD_OP.REPAIR', int(v_FD))
-                    st.metric('GAS-MITIGATION', int(v_GAS))
-                    st.metric('MISHRIF', int(v_MHF))
-                with col5:
-                    st.metric('PDI', int(v_PDI))
-                    st.metric('WS-POWER', int(v_WPP))
-                    st.metric('FILTERED TOTAL', int(v_TT))
 
             except Exception as e:
                 st.error(f"Error parsing status metrics: {e}")
@@ -625,18 +621,55 @@ else:
                                                index=get_index(UP_ALLOWED_LOCATIONS, db_loc),
                                                key=f"up_to_loc_cascade_{selected_gcode}")
 
+                # 💡 NEW Workflow: Live Database Lookup for existing assets at selected TO_LOCATION
+                allow_submission = True
+
+                if up_location != '----' and up_location != db_loc:
+                    try:
+                        # Search if any OTHER active asset is already stationed at this location
+                        existing_check = supabase.table("ASSETS").select("G-CODE", "MODEL", "TRANSFER_STATUS").eq(
+                            "TO_LOCATION", up_location).neq("G-CODE", selected_gcode).execute()
+
+                        if existing_check.data:
+                            allow_submission = False  # Lock submission down initially
+
+                            # Collate assets currently deployed there
+                            clashing_assets = ", ".join(
+                                [f"{item.get('G-CODE')} ({item.get('MODEL', 'Unknown Model')})" for item in
+                                 existing_check.data])
+
+                            st.error(
+                                f"⚠️ **LOCATION CONFLICT:** The location **{up_location}** already has an active asset assigned to it: **{clashing_assets}**.")
+
+                            # Prompt user choice via authorization checkbox
+                            bypass_checkbox = st.checkbox(
+                                f"🚨 Allow secondary assignment? Check this box if want to deploy multiple assets to {up_location}.",
+                                key=f"bypass_conflict_{selected_gcode}"
+                            )
+
+                            if bypass_checkbox:
+                                allow_submission = True
+                                st.success("🔓 Secondary deployment authorized by user.")
+                    except Exception as check_err:
+                        st.warning(f"Unable to verify location history entries: {check_err}")
+
                 st.markdown("---")
                 lock_engine_specs = asset_row.get('TRANSFER_STATUS') in ["DISPATCH", "RECEIVED", "INTERNAL-SHIFT"]
 
                 db_type = asset_row.get('TYPE', '----')
                 db_model = asset_row.get('MODEL', '----')
-                db_kva = int(asset_row.get('GEN_KVA', 0)) if asset_row.get('GEN_KVA') is not None else 0
+
+                try:
+                    db_kva = int(float(asset_row.get('GEN_KVA', 0)))
+                except:
+                    db_kva = 0
 
                 type_key = f"form_type_{selected_gcode}"
                 model_key = f"form_model_{selected_gcode}"
 
                 if type_key not in st.session_state:
                     st.session_state[type_key] = db_type if db_type in TYPE_LIST else '----'
+
                 current_type = st.session_state[type_key]
                 up_filtered = mappings_df[
                     mappings_df['type'] == current_type] if current_type != '----' else pd.DataFrame()
@@ -655,9 +688,10 @@ else:
                                                index=TYPE_LIST.index(st.session_state[type_key]), key=type_key,
                                                disabled=lock_engine_specs)
                     with config_col2:
+                        model_idx = up_allowed_models.index(st.session_state[model_key]) if st.session_state[
+                                                                                                model_key] in up_allowed_models else 0
                         up_model = st.selectbox('Engine MODEL:', options=up_allowed_models,
-                                                index=up_allowed_models.index(st.session_state[model_key]),
-                                                key=model_key, disabled=lock_engine_specs)
+                                                index=model_idx, key=model_key, disabled=lock_engine_specs)
                     with config_col3:
                         up_matched = up_filtered[
                             up_filtered['model'] == up_model] if up_model != '----' else pd.DataFrame()
@@ -696,33 +730,34 @@ else:
                                                   value=str(asset_row.get('SERIAL_NO', '')) if asset_row.get(
                                                       'SERIAL_NO') is not None else '',
                                                   key=f"up_serial_{selected_gcode}", disabled=lock_engine_specs)
+
                         try:
                             current_appr_kva = int(float(asset_row.get('APPR_KVA', 0)))
                         except:
                             current_appr_kva = 0
                         up_appr_kva = st.number_input('APPR_KVA verification:', min_value=0, value=current_appr_kva,
-                                                      key=f"up_appr_{selected_gcode}", disabled=lock_engine_specs)
+                                                      key=f"up_appr_{selected_gcode}")
 
                         try:
                             current_crew = int(float(asset_row.get('CREW', 0)))
                         except:
                             current_crew = 0
-                        up_crew = st.number_input(
-                            'CREW Count Allocated:',
-                            min_value=0,
-                            value=current_crew,
-                            step=1,
-                            key=f"up_crew_{selected_gcode}"
-                        )
+                        up_crew = st.number_input('CREW Count Allocated:', min_value=0, value=current_crew, step=1,
+                                                  key=f"up_crew_{selected_gcode}")
 
                     with col3:
+                        import datetime
+
+
                         def safe_date(val):
-                            if pd.isna(val) or not val: return max_date
-                            if isinstance(val, (datetime, date)): return val
+                            if pd.isna(val) or not val or str(val).strip() in ["—", "----"]:
+                                return datetime.date.today()
+                            if isinstance(val, (datetime.datetime, datetime.date)):
+                                return val if isinstance(val, datetime.date) else val.date()
                             try:
-                                return datetime.strptime(str(val).split()[0], "%Y-%m-%d").date()
+                                return datetime.datetime.strptime(str(val).split()[0], "%Y-%m-%d").date()
                             except:
-                                return max_date
+                                return datetime.date.today()
 
 
                         up_manuf_date = st.date_input('MANUF_YR:', value=safe_date(asset_row.get('MANUF_YR')),
@@ -743,23 +778,24 @@ else:
                             current_gc = int(float(asset_row.get('GC', 0)))
                         except:
                             current_gc = 0
-                        up_gc = st.number_input(
-                            'GC Fields:',
-                            min_value=0,
-                            value=current_gc,
-                            step=1,
-                            key=f"up_gc_{selected_gcode}"
-                        )
+                        up_gc = st.number_input('GC Fields:', min_value=0, value=current_gc, step=1,
+                                                key=f"up_gc_{selected_gcode}")
 
                     st.markdown("---")
                     up_reason = st.text_area("REASON / TRANSFER REMARKS:",
                                              value=str(asset_row.get('REASON', '')) if asset_row.get(
-                                                 'REASON') is not None else '', key=f"up_reason_{selected_gcode}")
+                                                 'REASON') is not None else '',
+                                             key=f"up_reason_{selected_gcode}")
 
+                    # 💡 Changed: Added block submission verification check
                     if st.form_submit_button("CLICK TO UPDATE ASSET", use_container_width=True,
                                              key=f"up_btn_{selected_gcode}"):
-                        if up_run_hr < current_run_hrs:
-                            st.error("❌ Updated hours cannot run lower than current data entries.")
+                        if not allow_submission:
+                            st.error(
+                                "❌ Action Blocked: You must resolve or acknowledge the Location Conflict before saving changes.")
+                        elif up_run_hr < current_run_hrs:
+                            st.error(
+                                f"❌ Updated hours ({up_run_hr:,}) cannot run lower than current data entries ({current_run_hrs:,} hrs).")
                         else:
                             try:
                                 before_q = supabase.table("ASSETS").select("*").eq('G-CODE', selected_gcode).execute()
@@ -800,11 +836,86 @@ else:
                                 log_audit_event(selected_gcode, "UPDATE", str(up_transfer),
                                                 f"Advanced runtime parameter metrics: {current_run_hrs:,} -> {up_run_hr:,} hrs.",
                                                 old_snapshot, new_snapshot)
+
                                 st.success("Asset successfully synchronized across network registries!")
                                 st.cache_data.clear()
                                 st.rerun()
                             except Exception as update_err:
                                 st.error(f"Supabase Execution Sync Fault: {update_err}")
+            else:
+                st.info("No master record data currently loaded.")
+
+        with tab4:
+            with tab4:
+                st.subheader("🗑️ Permanent Asset Decommission & Removal")
+                st.warning(
+                    "⚠️ **CRITICAL ACTION:** Deleting an asset will permanently purge its operational data from the live `ASSETS` network registry. This action cannot be undone.")
+
+                if not df.empty:
+                    # 1. Provide an isolated drop-down to pick the asset to delete
+                    delete_options = sorted(df['G-CODE'].dropna().unique().tolist())
+                    target_gcode = st.selectbox(
+                        "Select Asset G-CODE to PERMANENTLY Delete:",
+                        options=delete_options,
+                        key="select_gcode_deletion_mgr"
+                    )
+
+                    # 2. Retrieve a quick snapshot of the record before dropping it (for the audit trail)
+                    with st.spinner(f"Verifying existence of {target_gcode}..."):
+                        try:
+                            live_check = supabase.table("ASSETS").select("*").eq("G-CODE", target_gcode).execute()
+                            if live_check.data:
+                                deletion_snapshot = live_check.data[0]
+
+                                # Display a quick summary so the operator knows exactly what they are deleting
+                                st.info(
+                                    f"**Asset Identified:** {target_gcode}  \n"
+                                    f"**Type/Model:** {deletion_snapshot.get('TYPE', '—')} / {deletion_snapshot.get('MODEL', '—')}  \n"
+                                    f"**Current Location:** {deletion_snapshot.get('TO_LOCATION', '—')}  \n"
+                                    f"**Accumulated Hours:** {deletion_snapshot.get('RUN_HRS', 0):,} hrs"
+                                )
+                            else:
+                                st.error(f"Asset {target_gcode} could not be found in the database layer.")
+                                st.stop()
+                        except Exception as read_err:
+                            st.error(f"Failed to fetch asset metadata: {read_err}")
+                            st.stop()
+
+                    st.markdown("---")
+
+                    # 3. Two-Factor Safety Confirmation Checkbox
+                    confirm_gate = st.checkbox(
+                        f"I explicitly confirm that I want to completely delete asset **{target_gcode}** from the system database.",
+                        key=f"gate_delete_{target_gcode}"
+                    )
+
+                    # 4. Destruction Button Execution Area
+                    if st.button(f"💥 PERMANENTLY DESTROY {target_gcode}", use_container_width=True, type="primary",
+                                 disabled=not confirm_gate):
+                        try:
+                            # Execute deletion row-match query against Supabase
+                            supabase.table("ASSETS").delete().eq("G-CODE", target_gcode).execute()
+
+                            # 5. Log the incident into your Tracking Architecture
+                            log_audit_event(
+                                target_gcode,
+                                "DELETE",
+                                "DECOMMISSIONED",
+                                f"Asset permanently purged from system registries by administrative override.",
+                                deletion_snapshot,
+                                {}  # Empty object representing state after total destruction
+                            )
+
+                            st.success(f"Asset {target_gcode} successfully deleted from all network registries.")
+
+                            # Clear system cache and trigger immediate layout sync
+                            st.cache_data.clear()
+                            st.rerun()
+
+                        except Exception as delete_err:
+                            st.error(f"Supabase Deletion Execution Error: {delete_err}")
+                else:
+                    st.info("No master record data currently loaded available to purge.")
 
         with tab5:
             st.caption("📋 UPDATES REPORT FOR GENSET FIELD SECTIONS:")
@@ -823,21 +934,96 @@ else:
                 logs_df['From Location'] = logs_df['new_values'].apply(lambda x: extract_metric(x, 'FROM_LOCATION'))
                 logs_df['To Location'] = logs_df['new_values'].apply(lambda x: extract_metric(x, 'TO_LOCATION'))
                 logs_df['Reason'] = logs_df['new_values'].apply(lambda x: extract_metric(x, 'REASON'))
-                logs_df['KVA Rating'] = logs_df['new_values'].apply(lambda x: extract_metric(x, 'GEN_KVA'))
+                logs_df['Move_date'] = logs_df['new_values'].apply(lambda x: extract_metric(x, 'MOVE_DATE'))
+                logs_df['Model'] = logs_df['new_values'].apply(lambda x: extract_metric(x, 'MODEL'))
+                logs_df['Serial_no'] = logs_df['new_values'].apply(lambda x: extract_metric(x, 'SERIAL_NO'))
+                logs_df['KVA'] = logs_df['new_values'].apply(lambda x: extract_metric(x, 'GEN_KVA'))
                 logs_df['Running Hours'] = logs_df['new_values'].apply(lambda x: extract_metric(x, 'RUN_HRS'))
 
-                search_gcode = st.text_input("🔍 Quick-Filter Ledger by Asset ID (G-CODE):", placeholder="e.g., G-009",
-                                             key="tab5_audit_ledger_search").strip().upper()
-                filtered_df = logs_df[logs_df['g_code'].str.upper().str.contains(search_gcode,
-                                                                                 na=False)] if search_gcode else logs_df.copy()
+                display_df = logs_df.rename(columns={
+                    'created_at': 'Timestamp',
+                    'Move_date': 'Move Date',
+                    'Serial_no': 'Serial No',
+                    'Model': 'Model',
+                    'changed_by': 'Login Credentials',
+                    'g_code': 'Asset ID (G-CODE)',
+                    'action_type': 'Action'
+                })
 
-                display_df = filtered_df.rename(columns={'created_at': 'Timestamp', 'changed_by': 'Login Credentials',
-                                                         'g_code': 'Asset ID (G-CODE)', 'action_type': 'Action'})
-                target_columns = ['Timestamp', 'Asset ID (G-CODE)', 'From Location', 'To Location', 'Running Hours',
-                                  'Reason', 'KVA Rating', 'Login Credentials']
+                target_columns = ['Move Date', 'Asset ID (G-CODE)', 'Serial No', 'Model',
+                                  'KVA', 'From Location', 'To Location', 'Running Hours',
+                                  'Reason', 'Login Credentials', 'Timestamp']
 
-                designed_logs_df = display_df[target_columns].style.apply(style_zebra_rows, axis=None)
-                st.dataframe(designed_logs_df, use_container_width=True, hide_index=True)
+                # 💡 1. Convert "Move Date" column to datetimes safely for range extraction
+                # Errors='coerce' turns missing/invalid dates ('—') safely into NaT (Not a Time)
+                temp_move_dates = pd.to_datetime(display_df['Move Date'], errors='coerce')
+                valid_move_dates = temp_move_dates.dropna()
+
+                # Fallback boundary check if there are no valid move dates in the system yet
+                import datetime
+
+                min_date = valid_move_dates.min().date() if not valid_move_dates.empty else datetime.date.today()
+                max_date = valid_move_dates.max().date() if not valid_move_dates.empty else datetime.date.today()
+
+                # 🛠️ Layout columns for filters
+                col1, col2 = st.columns([1, 1])
+
+                with col1:
+                    # 💡 2. Date Range Picker mapped to Move Date
+                    date_range = st.date_input(
+                        "📅 Filter by Move Date Range:",
+                        value=(min_date, max_date),
+                        min_value=min_date,
+                        max_value=max_date,
+                        key="tab5_move_date_range"
+                    )
+
+                with col2:
+                    # 💡 3. Dynamic Unique Options for Multi-Select Filter
+                    searchable_columns = ['Asset ID (G-CODE)', 'From Location', 'To Location', 'Model', 'Reason']
+                    unique_options = set()
+                    for col in searchable_columns:
+                        if col in display_df.columns:
+                            unique_options.update(display_df[col].dropna().astype(str).unique())
+                    unique_options = sorted([opt for opt in unique_options if opt not in ["—", "----", ""]])
+
+                    selected_queries = st.multiselect(
+                        "🔍 Multi-Select Global Filter:",
+                        options=unique_options,
+                        placeholder="Choose terms...",
+                        key="tab5_multi_search"
+                    )
+
+                    # 🏃‍♂️ 4. Execution of Filters
+                    filtered_df = display_df.copy()
+
+                    # Step A: Apply Move Date Filter
+                    if isinstance(date_range, (tuple, list)) and len(date_range) == 2:
+                        start_date, end_date = date_range
+
+                        # Map back to our temporary datetime series to cleanly filter matching boundaries
+                        filtered_df = filtered_df[
+                            (temp_move_dates.dt.date >= start_date) &
+                            (temp_move_dates.dt.date <= end_date)
+                            ]
+
+                    # Step B: Apply Multi-Select Global Search Filter
+                    if selected_queries:
+                        selected_queries_lower = [str(q).lower() for q in selected_queries]
+                        mask = filtered_df[target_columns].astype(str).apply(
+                            lambda row: row.str.lower().apply(
+                                lambda cell: any(q in cell for q in selected_queries_lower)).any(),
+                            axis=1
+                        )
+                        filtered_df = filtered_df[mask]
+
+                    # Render Final Output Table
+                if not filtered_df.empty:
+                    designed_logs_df = filtered_df[target_columns].style.apply(style_zebra_rows, axis=None)
+                    st.dataframe(designed_logs_df, use_container_width=True, hide_index=True)
+                else:
+                    st.warning("No records matched your combined move date range and search criteria.")
+
             else:
                 st.info("No audit transactions logged inside tracking structures yet.")
 
@@ -1065,10 +1251,386 @@ else:
         # =====================================================================
         # 5. UNIMPLEMENTED PLACEHOLDER ROUTING TARGETS
         # =====================================================================
+    #=====================================================================
+    #workshop
+    #=====================================================================
     elif navigation_target == "WORKSHOP":
-        st.info("Workshop processing terminal interface modules pending development configurations.")
+        df = get_assets_df()
+        if not df.empty:
+            try:
+                import pandas as pd
+                import datetime
+
+                # --- CRITICAL: SANITIZE DATA TYPES TO PREVENT RUNTIME ERRORS ---
+                if 'GEN_KVA' in df.columns:
+                    df['GEN_KVA'] = pd.to_numeric(df['GEN_KVA'], errors='coerce').fillna(0).astype(int)
+                if 'RUN_HRS' in df.columns:
+                    df['RUN_HRS'] = pd.to_numeric(df['RUN_HRS'], errors='coerce').fillna(0)
+
+                # --- ISOLATED WORKSHOP FILTER LAYER ---
+                if 'USER' in df.columns and 'TO_LOCATION' in df.columns:
+                    workshop_df = df[(df['USER'] == 'WORKSHOP') & (df['TO_LOCATION'] == 'WORKSHOP')].copy()
+                else:
+                    workshop_df = pd.DataFrame()
+
+                # --- 💡 NEW: CALCULATE DURATION METRIC ("Days in Workshop") ---
+                if not workshop_df.empty and 'MOVE_DATE' in workshop_df.columns:
+                    # Safely parse the move date column; invalid formats/dashes turn into NaT
+                    parsed_move_dates = pd.to_datetime(workshop_df['MOVE_DATE'], errors='coerce')
+
+                    # Calculate days between today's date and the move date
+                    today_dt = pd.Timestamp(datetime.date.today())
+
+                    # .dt.days extracts just the integer count of days
+                    workshop_df['Days in Workshop'] = (today_dt - parsed_move_dates).dt.days
+
+                    # Clean up any missing dates or future clock errors cleanly
+                    workshop_df['Days in Workshop'] = workshop_df['Days in Workshop'].apply(
+                        lambda x: f"{int(x)} Days" if pd.notna(x) and x >= 0 else "—"
+                    )
+                else:
+                    workshop_df['Days in Workshop'] = "—"
+
+                # --- RE-CALCULATE METRICS SPECIFIC TO WORKSHOP DATA ---
+                v_TT = len(workshop_df)
+                total_kva = workshop_df['GEN_KVA'].sum() if 'GEN_KVA' in workshop_df.columns else 0
+                avg_runtime = workshop_df['RUN_HRS'].mean() if 'RUN_HRS' in workshop_df.columns else 0
+
+                # --- POWER BI FEATURE: EXECUTIVE SUMMARY METRICS FIRST ---
+                st.subheader("🛠️ Workshop Status Control Dashboard")
+                st.caption("📋 Real-time metrics for assets physically stationed inside the main workshop")
+
+                kpi1, kpi2, kpi3 = st.columns(3)
+                with kpi1:
+                    st.metric(label="📟 UNITS IN WORKSHOP", value=f"{v_TT:,} Units", border=True)
+                with kpi2:
+                    st.metric(label="⚡ TOTAL UNDER-REPAIR CAPACITY", value=f"{total_kva:,} KVA", border=True)
+                with kpi3:
+                    st.metric(label="⏳ AVG ACCUMULATED RUN HOURS",
+                              value=f"{int(avg_runtime):,} Hrs" if pd.notna(avg_runtime) else "0 Hrs", border=True)
+
+                st.markdown("---")
+
+                # --- LIVE VIEWPORT DATAFRAME ---
+                st.markdown("##### 📋 Workshop Assets Ledger Viewport")
+                if not workshop_df.empty:
+                    # Rename columns dynamically for structured enterprise presentations
+                    display_workshop_df = workshop_df.rename(columns={
+                        'created_at': 'Timestamp',
+                        'MOVE_DATE': 'Move Date',
+                        'SERIAL_NO': 'Serial No',
+                        'MODEL': 'Model',
+                        'TYPE': 'Manufacturer TYPE',
+                        'G-CODE': 'Asset ID (G-CODE)',
+                        'GEN_KVA': 'Rating (KVA)',
+                        'RUN_HRS': 'Running Hours',
+                        'REASON': 'Repair Remarks / Reason'
+                    })
+
+                    # 💡 Added 'Days in Workshop' right next to the Move Date for optimal scannability
+                    target_columns = [
+                        'Asset ID (G-CODE)', 'Manufacturer TYPE', 'Model', 'Rating (KVA)',
+                        'Running Hours', 'Move Date', 'Days in Workshop', 'Repair Remarks / Reason', 'Timestamp'
+                    ]
+
+                    # Check for existing column compatibility slice safely
+                    available_cols = [c for c in target_columns if c in display_workshop_df.columns]
+
+                    # Apply styling and render layout frame
+                    designed_workshop_df = display_workshop_df[available_cols].style.apply(style_zebra_rows, axis=None)
+                    st.dataframe(designed_workshop_df, use_container_width=True, hide_index=True)
+                else:
+                    st.info("Excellent! There are currently zero assets flagged under Workshop repair constraints.")
+
+            except Exception as e:
+                st.error(f"Error compiling Workshop tracking registry views: {e}")
+        else:
+            st.info("No equipment inventory assets found inside database registries.")
+    #===========================================================================================
+    #STORES AND PARTS
+    #===========================================================================================
     elif navigation_target == "STORES & PARTS":
-        st.info("Stores and raw components logistics management ledger pending implementation sync.")
+        st.subheader("📦 Spare Parts Store Inventory & Dispatch Control")
+
+        # --- 1. DYNAMIC METRICS AGGREGATION ENGINE ---
+        try:
+            # Fetch current store inventory profiles
+            parts_query = supabase.table("SPARE_PARTS").select("*").execute()
+            parts_list = parts_query.data if parts_query.data else []
+
+            # Fetch permanent historical tracking logs for the parts store
+            audit_query = supabase.table("AUDIT_LOGS").select("*").in_("action_type",
+                                                                       ["STORE_INBOUND", "STORE_OUTBOUND"]).execute()
+            audit_list = audit_query.data if audit_query.data else []
+        except Exception as fetch_err:
+            st.error(f"Failed to synchronize parts inventory streams: {fetch_err}")
+            parts_list = []
+            audit_list = []
+
+        # --- INTAKE SEGMENT CALCULATIONS ---
+        total_line_items = len(parts_list)
+        total_physical_pieces = sum([int(item.get('quantity', 0)) for item in parts_list])
+
+        # --- DISPATCH SEGMENT CALCULATIONS ---
+        dispatch_logs_raw = [log for log in audit_list if log.get('action_type') == 'STORE_OUTBOUND']
+        total_dispatched_transactions = len(dispatch_logs_raw)
+
+        # Safely parse structural strings or snapshots to count total hardware pieces sent out to operations
+        import json
+
+        total_pieces_dispatched = 0
+        for log in dispatch_logs_raw:
+            try:
+                # Look inside the previous snapshot vs new snapshot to deduce volume moved
+                old_snap = log.get('old_snapshot', {})
+                new_snap = log.get('new_snapshot', {})
+                if isinstance(old_snap, str): old_snap = json.loads(old_snap)
+                if isinstance(new_snap, str): new_snap = json.loads(new_snap)
+
+                diff = int(old_snap.get('quantity', 0)) - int(new_snap.get('quantity', 0))
+                if diff > 0:
+                    total_pieces_dispatched += diff
+            except:
+                pass
+
+        # --- 2. CLEANLY SEPARATED METRICS GROUPS ---
+
+        # GROUP A: INBOUND INVENTORY CAPACITY METRICS
+        st.markdown("##### 📥 Current Storehouse Inventory Totals")
+        in_kpi1, in_kpi2 = st.columns(2)
+        with in_kpi1:
+            st.metric(label="🗂️ UNIQUE CATALOGED PART NUMBERS", value=f"{total_line_items:,} Items", border=True)
+        with in_kpi2:
+            st.metric(label="📦 TOTAL PHYSICAL PIECES ON SHELVES", value=f"{total_physical_pieces:,} Units", border=True)
+
+        st.markdown("---")
+
+        # GROUP B: OUTBOUND LEAN FLEET PERFORMANCE METRICS
+        st.markdown("##### 📤 Cumulative Historical Fleet Dispatch Totals")
+        out_kpi1, out_kpi2 = st.columns(2)
+        with out_kpi1:
+            st.metric(label="🚀 ACTIVE DISPATCH TRANSACTIONS RUN", value=f"{total_dispatched_transactions:,} Orders",
+                      border=True)
+        with out_kpi2:
+            st.metric(label="🔧 TOTAL SPARE PIECES DISTRIBUTED TO FLEET",
+                      value=f"{total_pieces_dispatched:,} Parts Issued", border=True)
+
+        st.markdown("---")
+
+        # --- 3. DUAL-STREAM TRANSACTION FORMS ---
+        action_tab1, action_tab2 = st.tabs(["📥 Receive / Add Stock", "📤 Dispatch / Issue Stock"])
+
+        # TRACK 1: INVENTORY INTAKE FORM
+        with action_tab1:
+            st.markdown("##### Log New Spare Parts Into Storage")
+            with st.form(key="add_spare_parts_form"):
+                in_part_no = st.text_input("Part Number (Unique Identifier) *:", key="st_in_part_no").strip().upper()
+                in_name = st.text_input("Name of Spare Part *:", key="st_in_name").strip()
+                in_qty = st.number_input("Quantity Received *:", min_value=1, step=1, value=1, key="st_in_qty")
+                in_loc = st.text_input("Storage Location Shelf / Bin *:", key="st_in_loc").strip()
+
+                submit_add = st.form_submit_button("ADD STOCK TO INVENTORY", use_container_width=True)
+
+                if submit_add:
+                    if not in_part_no or not in_name or not in_loc:
+                        st.error("❌ Action Blocked: Please complete all required configuration fields (*).")
+                    else:
+                        try:
+                            exist_q = supabase.table("SPARE_PARTS").select("*").eq("part_number", in_part_no).execute()
+                            if exist_q.data:
+                                old_record = exist_q.data[0]
+                                new_qty = int(old_record.get('quantity', 0)) + int(in_qty)
+                                supabase.table("SPARE_PARTS").update({"quantity": new_qty}).eq("part_number",
+                                                                                               in_part_no).execute()
+                                new_record = {**old_record, "quantity": new_qty}
+
+                                log_audit_event(
+                                    in_part_no, "STORE_INBOUND", "STOCK_INCREMENT",
+                                    f"Added {in_qty} units of existing stock. Total inventory: {new_qty}.",
+                                    old_record, new_record
+                                )
+                            else:
+                                new_payload = {"part_number": in_part_no, "spare_name": in_name,
+                                               "quantity": int(in_qty), "location": in_loc}
+                                supabase.table("SPARE_PARTS").insert(new_payload).execute()
+
+                                log_audit_event(
+                                    in_part_no, "STORE_INBOUND", "NEW_ITEM",
+                                    f"Registered brand new spare part asset: {in_qty} units.",
+                                    {}, new_payload
+                                )
+                            st.success(
+                                f"📦 Inventory matrix verified! {in_qty} units of Part [{in_part_no}] synchronized.")
+                            st.cache_data.clear()
+                            st.rerun()
+                        except Exception as err:
+                            st.error(f"Inventory DB execution fault: {err}")
+
+        # TRACK 2: DISTRIBUTION / DISPATCH FORM
+        with action_tab2:
+            st.markdown("##### Issue Spares to Field Assignments / Workorders")
+            if parts_list:
+                parts_options = {
+                    item['part_number']: f"{item['part_number']} — {item['spare_name']} (Available: {item['quantity']})"
+                    for item in parts_list}
+
+                with st.form(key="dispatch_parts_form"):
+                    selected_part_no = st.selectbox(
+                        "Select Spare Part to Dispatch:",
+                        options=list(parts_options.keys()),
+                        format_func=lambda x: parts_options[x],
+                        key="st_out_part_no"
+                    )
+                    out_qty = st.number_input("Quantity to Issue:", min_value=1, step=1, value=1, key="st_out_qty")
+                    out_target = st.text_input("Destination Place / Target Asset ID (e.g. G-CODE) *:",
+                                               key="st_out_target").strip().upper()
+                    out_remarks = st.text_area("Dispatch Purpose / Job Card Remarks:", key="st_out_remarks").strip()
+
+                    submit_dispatch = st.form_submit_button("AUTHORIZE INVENTORY DISPATCH", use_container_width=True)
+
+                    if submit_dispatch:
+                        if not out_target:
+                            st.error("❌ Action Blocked: You must identify the target machine or destination asset ID.")
+                        else:
+                            current_item = next(item for item in parts_list if item['part_number'] == selected_part_no)
+                            available_stock = int(current_item.get('quantity', 0))
+
+                            if out_qty > available_stock:
+                                st.error(f"❌ Shortage Error: Requested: {out_qty}, Available: {available_stock}")
+                            else:
+                                try:
+                                    final_qty = available_stock - int(out_qty)
+                                    supabase.table("SPARE_PARTS").update({"quantity": final_qty}).eq("part_number",
+                                                                                                     selected_part_no).execute()
+                                    updated_item = {**current_item, "quantity": final_qty}
+
+                                    log_audit_event(
+                                        selected_part_no,
+                                        "STORE_OUTBOUND",
+                                        "STOCK_DEDUCTION",
+                                        f"Issued {out_qty} units out to Asset/Place: {out_target}. Purpose: {out_remarks}",
+                                        current_item,
+                                        updated_item
+                                    )
+                                    st.success(
+                                        f"🚀 Dispatch secure! {out_qty} units mapped against reference target: {out_target}.")
+                                    st.cache_data.clear()
+                                    st.rerun()
+                                except Exception as out_err:
+                                    st.error(f"Dispatch update failure: {out_err}")
+            else:
+                st.info("No stock records currently exist inside storage shelves to display for distribution cycles.")
+
+        st.markdown("---")
+
+        # --- 4. LIVE LOG VIEWPORT (THE PERMANENT DISPATCH HISTORICAL RECORD) ---
+        st.markdown("##### 📋 Permanent Storage Dispatch & Transaction History")
+        if audit_list:
+            import pandas as pd
+            import json
+            import re
+
+            audit_df = pd.DataFrame(audit_list)
+
+            # Filter down specifically to outbound dispatches
+            if not audit_df.empty and 'action_type' in audit_df.columns:
+                dispatch_logs = audit_df[audit_df['action_type'] == 'STORE_OUTBOUND'].copy()
+            else:
+                dispatch_logs = pd.DataFrame()
+
+            if not dispatch_logs.empty:
+                # Sort with the latest transaction appearing at the top
+                if 'created_at' in dispatch_logs.columns:
+                    dispatch_logs['created_at'] = pd.to_datetime(dispatch_logs['created_at'])
+                    dispatch_logs = dispatch_logs.sort_values(by='created_at', ascending=False)
+                    dispatch_logs['created_at'] = dispatch_logs['created_at'].dt.strftime('%Y-%m-%d %H:%M')
+
+
+                # 🛠️ PARSE PART NUMBER DYNAMICALLY
+                def parse_part_number(row):
+                    # Check explicit columns
+                    for key in ['asset_gcode', 'gcode', 'part_number']:
+                        if key in row and pd.notna(row[key]) and str(row[key]).strip() not in ["", "—"]:
+                            return str(row[key])
+
+                    # Check text/notes descriptions safely
+                    for key in ['notes', 'remarks', 'reason', 'details']:
+                        if key in row and pd.notna(row[key]):
+                            notes_str = str(row[key])
+                            match = re.search(r"Part\s*\[([^\]]+)\]", notes_str, re.IGNORECASE)
+                            if match:
+                                return match.group(1)
+                    return "—"
+
+
+                # 🛠️ EXTRACT REMAINING STOCK BALANCE VIA LIVE INVENTORY OR SNAPSHOTS
+                def parse_balance(row, parts_list):
+                    try:
+                        after_state = row.get('new_snapshot', {})
+                        if isinstance(after_state, str):
+                            after_state = json.loads(after_state)
+                        if after_state:
+                            for q_key in ['quantity', 'qty', 'Stock', 'balance']:
+                                if q_key in after_state and after_state[q_key] != 0:
+                                    return f"{int(after_state[q_key])} Pcs"
+                    except:
+                        pass
+
+                    # Cross-reference with our live pulled parts list
+                    p_num = parse_part_number(row)
+                    if p_num != "—":
+                        live_match = next((item for item in parts_list if str(item.get('part_number')) == p_num), None)
+                        if live_match and 'quantity' in live_match:
+                            return f"{int(live_match['quantity'])} Pcs"
+
+                    return "—"
+
+
+                # 🛠️ SAFE PARSING FOR NOTES / DETAILS COLUMN
+                def parse_destination(row):
+                    for key in ['notes', 'remarks', 'reason', 'details', 'description']:
+                        if key in row and pd.notna(row[key]) and str(row[key]).strip() != "":
+                            return str(row[key])
+                    return "—"
+
+
+                # Apply processing calculations safely using row loops (.get/apply) to prevent crashes
+                dispatch_logs['Part Number'] = dispatch_logs.apply(parse_part_number, axis=1)
+                dispatch_logs['Stock Balance'] = dispatch_logs.apply(lambda r: parse_balance(r, parts_list), axis=1)
+                dispatch_logs['Dispatch Details & Destination'] = dispatch_logs.apply(parse_destination, axis=1)
+
+                dispatch_logs['Issued By'] = dispatch_logs.apply(
+                    lambda r: str(r.get('operator_user', r.get('user_id', 'SYSTEM'))), axis=1
+                )
+
+                # Map Timestamp column safely
+                if 'created_at' in dispatch_logs.columns:
+                    dispatch_logs['Timestamp'] = dispatch_logs['created_at']
+                else:
+                    dispatch_logs['Timestamp'] = "—"
+
+                # Target exact final display columns
+                target_cols = [
+                    'Timestamp',
+                    'Part Number',
+                    'Stock Balance',
+                    'Dispatch Details & Destination',
+                    'Issued By'
+                ]
+
+                # Final data filter alignment pass
+                available_cols = [c for c in target_cols if c in dispatch_logs.columns]
+                final_display_df = dispatch_logs[available_cols]
+
+                styled_logs = final_display_df.style.apply(style_zebra_rows, axis=None)
+                st.dataframe(styled_logs, use_container_width=True, hide_index=True)
+            else:
+                st.info("No historical dispatch operations logged yet.")
+        else:
+            st.info("No transaction logs registered under warehouse inbound or outbound records.")
+
+
+    #======================================================================================================
     elif navigation_target == "MAINTENANCE":
         st.info("Maintenance schedules workflow manager pending engineering configuration.")
     elif navigation_target == "FLEET MANAGEMENT":
