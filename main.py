@@ -1052,17 +1052,12 @@ else:
                         return "-"
                     return str(val).strip().encode('ascii', 'ignore').decode('ascii')
 
-
-                # --- 2. G-CODE SINGLE ASSET DRILLDOWN SEARCH BAR ---
-                st.caption("##### 🎯 Single Asset current data:")
-
-                # Create a clean searchable dropdown of all valid G-Codes
                 all_gcodes = ["--- SELECT A SPECIFIC G-CODE FOR FULL PROFILE ---"] + sorted(
                     fleet_df['G-CODE'].dropna().unique().tolist()
                 )
 
                 selected_gcode_focus = st.selectbox(
-                    "Isolate a specific Asset Profile by G-CODE:",
+                    "SELECT G-CODE :",
                     options=all_gcodes,
                     key="fm_gcode_focus_dropdown"
                 )
