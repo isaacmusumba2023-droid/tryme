@@ -1637,5 +1637,366 @@ else:
         st.info("Fleet operational telemetry maps overview profiles pending compilation.")
     elif navigation_target == "REMOTE TELEMETRY":
         st.info("Scada/IoT streaming pipeline processing endpoints interface metrics offline.")
+    #=======================================================================================================
     elif navigation_target == "REPORTS":
-        st.info("System reports compilation generation platform routing setup offline.")
+        st.subheader("📋 Centralized Field Operations Reporting Cockpit")
+        st.caption("Generate, filter, and export live executive-ready reports across fleet segments")
+
+        # --- 1. COLLECT DATAFRAME SOURCES ---
+        try:
+            fleet_df = get_assets_df()
+
+            # Pull audit logs safely for transactional metrics
+            audit_query = supabase.table("AUDIT_LOGS").select("*").execute()
+            audit_data = audit_query.data if audit_query.data else []
+            import pandas as pd
+
+            audit_df = pd.DataFrame(audit_data)
+        except Exception as e:
+            st.error(f"Error initializing report data streams: {e}")
+            fleet_df = pd.DataFrame()
+            audit_df = pd.DataFrame()
+
+        if not fleet_df.empty:
+            # --- SANITIZE NUMERICAL COLUMNS FOR REPORTING ACCURACY ---
+            if 'GEN_KVA' in fleet_df.columns:
+                fleet_df['GEN_KVA'] = pd.to_numeric(fleet_df['GEN_KVA'], errors='coerce').fillna(0).astype(int)
+            if 'RUN_HRS' in fleet_df.columns:
+                fleet_df['RUN_HRS'] = pd.to_numeric(fleet_df['RUN_HRS'], errors='coerce').fillna(0).astype(int)
+
+            # --- 2. GLOBAL EXECUTIVE FLEET METRICS ---
+            st.markdown("##### 📊 Global Fleet Summary Metrics")
+
+            total_units = len(fleet_df)
+            total_capacity = fleet_df['GEN_KVA'].sum() if 'GEN_KVA' in fleet_df.columns else 0
+            avg_hours = fleet_df['RUN_HRS'].mean() if 'RUN_HRS' in fleet_df.columns else 0
+            total_incidents = len(audit_df) if not audit_df.empty else 0
+
+            rep_kpi1, rep_kpi2, rep_kpi3, rep_kpi4 = st.columns(4)
+            with rep_kpi1:
+                st.metric(label="📟 ACTIVE DEPLOYED FLEET", value=f"{total_units:,} Units", border=True)
+            with rep_kpi2:
+                st.metric(label="⚡ TOTAL CAPACITY METRIC", value=f"{total_capacity:,} KVA", border=True)
+            with rep_kpi3:
+                st.metric(label="⏳ AVG RUNNING TIMELINE", value=f"{int(avg_hours):,} Hrs", border=True)
+            with rep_kpi4:
+                st.metric(label="📜 AUDITED SYSTEM EVENTS", value=f"{total_incidents:,} Actions", border=True)
+
+            st.markdown("---")
+
+            # --- 3. FILTER ENGINE WORKBENCH ---
+            st.markdown("##### 🛠️ Report Generation Filter Engine")
+            filter_col1, filter_col2, filter_col3 = st.columns(3)
+
+            with filter_col1:
+                user_options = ["ALL GROUPS"] + sorted(
+                    fleet_df['USER'].dropna().unique().tolist()) if 'USER' in fleet_df.columns else ["ALL GROUPS"]
+                selected_report_user = st.selectbox("Select Operational Group (USER):", options=user_options,
+                                                    key="rep_filter_user")
+
+            with filter_col2:
+                loc_options = ["ALL LOCATIONS"] + sorted(
+                    fleet_df['FIELD'].dropna().unique().tolist()) if 'FIELD' in fleet_df.columns else ["ALL LOCATIONS"]
+                selected_report_field = st.selectbox("Select Field Location Assignment:", options=loc_options,
+                                                     key="rep_filter_field")
+
+            with filter_col3:
+                type_options = ["ALL EQUIPMENT TYPES"] + sorted(
+                    fleet_df['TYPE'].dropna().unique().tolist()) if 'TYPE' in fleet_df.columns else [
+                    "ALL EQUIPMENT TYPES"]
+                selected_report_type = st.selectbox("Select Generator Equipment Type:", options=type_options,
+                                                    key="rep_filter_type")
+
+            # Apply Processing Filters
+            filtered_report_df = fleet_df.copy()
+            if selected_report_user != "ALL GROUPS":
+                filtered_report_df = filtered_report_df[filtered_report_df['USER'] == selected_report_user]
+            if selected_report_field != "ALL LOCATIONS":
+                filtered_report_df = filtered_report_df[filtered_report_df['FIELD'] == selected_report_field]
+            if selected_report_type != "ALL EQUIPMENT TYPES":
+                filtered_report_df = filtered_report_df[filtered_report_df['TYPE'] == selected_report_type]
+
+            # --- DYNAMIC OPERATIONAL PROFILE BREAKDOWNS ---
+            st.markdown("##### 📈 Granular Operational Analysis Profiles")
+            an_col1, an_col2, an_col3 = st.columns(3)
+
+            with an_col1:
+                st.markdown("**🛠️ Fleet Count by Reason**")
+                if 'REASON' in filtered_report_df.columns:
+                    reason_counts = filtered_report_df['REASON'].fillna(
+                        'Routine/Unspecified Operations').value_counts().to_frame().rename(
+                        columns={'count': 'Unit Count'})
+                    st.dataframe(reason_counts, use_container_width=True)
+                else:
+                    st.caption("No explicit REASON logs found.")
+
+            with an_col2:
+                st.markdown("**🚚 Logistical Transfer Status**")
+                if 'TO_LOCATION' in filtered_report_df.columns:
+                    transfer_counts = filtered_report_df['TO_LOCATION'].fillna(
+                        'Stationary / Located').value_counts().to_frame().rename(columns={'count': 'Unit Count'})
+                    st.dataframe(transfer_counts, use_container_width=True)
+                else:
+                    st.caption("No movement tracking column found.")
+
+            with an_col3:
+                st.markdown("**🎯 Operational Allocation Purpose**")
+                purpose_col = 'PURPOSE' if 'PURPOSE' in filtered_report_df.columns else (
+                    'REMARKS' if 'REMARKS' in filtered_report_df.columns else None)
+                if purpose_col:
+                    purpose_counts = filtered_report_df[purpose_col].fillna(
+                        'General Deployment Support').value_counts().to_frame().rename(columns={'count': 'Unit Count'})
+                    st.dataframe(purpose_counts, use_container_width=True)
+                else:
+                    st.caption("No structural PURPOSE data fields present.")
+
+            st.markdown("---")
+
+            # --- 4. DATA EXPORT STUDIO ---
+            st.markdown("##### 💾 Professional Document Export Studio")
+
+            export_mode = st.radio(
+                "Choose Target Presentation Document Format:",
+                options=["Excel Spreadsheet (.xlsx)", "Print-Ready Document (.pdf)"],
+                horizontal=True,
+                key="document_export_mode_selector"
+            )
+
+            import io
+            import datetime
+
+
+            # Safe String Transformer to handle character sets safely
+            def safe_str(val):
+                if val is None or pd.isna(val) or str(val).strip().upper() == "NONE":
+                    return "-"
+                return str(val).strip().encode('ascii', 'ignore').decode('ascii')
+
+
+            if export_mode == "Excel Spreadsheet (.xlsx)":
+                import openpyxl
+                from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+                from openpyxl.utils import get_column_letter
+
+                excel_buffer = io.BytesIO()
+                wb = openpyxl.Workbook()
+
+                # Tab 1: Executive Summary
+                ws_dash = wb.active
+                ws_dash.title = "Executive Summary"
+                ws_dash.views.sheetView[0].showGridLines = True
+
+                navy_dark, accent_blue, zebra_tint, white, b_gray = "1B365D", "E8EEF5", "F7F9FB", "FFFFFF", "D3D3D3"
+
+                ws_dash.merge_cells("A1:E2")
+                t_cell = ws_dash["A1"]
+                t_cell.value = "FIELD OPERATIONS EXECUTIVES SUMMARY PROFILE"
+                t_cell.font = Font(name="Calibri", size=14, bold=True, color=white)
+                t_cell.fill = PatternFill(start_color=navy_dark, end_color=navy_dark, fill_type="solid")
+                t_cell.alignment = Alignment(horizontal="center", vertical="center")
+
+                ws_dash["A3"] = f"Generated: {datetime.date.today().isoformat()} | Group Scope: {selected_report_user}"
+                ws_dash["A3"].font = Font(italic=True, size=10)
+
+                kpis = [
+                    ("Active Units", f"{len(filtered_report_df)} Pcs", "A"),
+                    ("Total KVA Rating", f"{filtered_report_df['GEN_KVA'].sum():,} KVA", "B"),
+                    ("Avg Hours Registered",
+                     f"{int(filtered_report_df['RUN_HRS'].mean() if len(filtered_report_df) > 0 else 0):,} Hrs", "C")
+                ]
+
+                for title, val, col in kpis:
+                    ws_dash[f"{col}5"] = title
+                    ws_dash[f"{col}5"].font = Font(bold=True, size=11, color=navy_dark)
+                    ws_dash[f"{col}5"].fill = PatternFill(start_color=accent_blue, fill_type="solid")
+                    ws_dash[f"{col}5"].alignment = Alignment(horizontal="center")
+
+                    ws_dash[f"{col}6"] = val
+                    ws_dash[f"{col}6"].font = Font(bold=True, size=13)
+                    ws_dash[f"{col}6"].alignment = Alignment(horizontal="center")
+
+                    thin = Side(border_style="thin", color=b_gray)
+                    ws_dash[f"{col}5"].border = Border(top=thin, left=thin, right=thin, bottom=thin)
+                    ws_dash[f"{col}6"].border = Border(top=thin, left=thin, right=thin, bottom=thin)
+
+                # Tab 2: Master Live Dataset
+                ws_data = wb.create_sheet(title="Master Live Dataset")
+                ws_data.views.sheetView[0].showGridLines = True
+
+                headers = list(filtered_report_df.columns)
+                for c_idx, h_text in enumerate(headers, 1):
+                    cell = ws_data.cell(row=1, column=c_idx, value=str(h_text).upper())
+                    cell.font = Font(name="Calibri", size=11, bold=True, color=white)
+                    cell.fill = PatternFill(start_color=navy_dark, end_color=navy_dark, fill_type="solid")
+                    cell.alignment = Alignment(horizontal="center", vertical="center")
+
+                t_border = Border(left=Side(style='thin', color=b_gray), right=Side(style='thin', color=b_gray),
+                                  top=Side(style='thin', color=b_gray), bottom=Side(style='thin', color=b_gray))
+
+                for r_idx, r_values in enumerate(filtered_report_df.values, 2):
+                    row_fill = PatternFill(start_color=zebra_tint,
+                                           fill_type="solid") if r_idx % 2 == 0 else PatternFill(fill_type=None)
+                    for c_idx, val in enumerate(r_values, 1):
+                        write_val = safe_str(val) if isinstance(val, str) else val
+                        cell = ws_data.cell(row=r_idx, column=c_idx, value=write_val)
+                        cell.fill = row_fill
+                        cell.border = t_border
+                        if isinstance(val, (int, float)):
+                            cell.number_format = '#,##0'
+                            cell.alignment = Alignment(horizontal="right")
+
+                for sheet in [ws_dash, ws_data]:
+                    for col in sheet.columns:
+                        m_len = max(len(str(cell.value or '')) for cell in col)
+                        col_letter = get_column_letter(col[0].column)
+                        sheet.column_dimensions[col_letter].width = max(m_len + 4, 12)
+
+                wb.save(excel_buffer)
+                st.download_button(
+                    label="🟢 DOWNLOAD DESIGNED EXCEL WORKBOOK (.XLSX)",
+                    data=excel_buffer.getvalue(),
+                    file_name=f"Executive_Fleet_Report_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
+
+            elif export_mode == "Print-Ready Document (.pdf)":
+                def generate_fleet_pdf(dataframe, user_scope):
+                    from fpdf import FPDF
+
+                    class CustomFleetPDF(FPDF):
+                        def header(self):
+                            self.set_fill_color(27, 54, 93)
+                            self.rect(10, 10, 277, 24, "F")
+                            self.set_text_color(255, 255, 255)
+                            self.set_font("Helvetica", "B", 13)
+                            self.set_y(14)
+                            self.cell(0, 8, "   FIELD OPERATIONS FLEET SUMMARY REPORT", ln=True)
+                            self.set_font("Helvetica", "I", 9)
+                            self.cell(0, 4,
+                                      f"   Generated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')} | Scope: {user_scope}",
+                                      ln=True)
+                            # Set Y position directly down to table space layout (omitting KPIs space completely)
+                            self.set_y(40)
+
+                        def footer(self):
+                            self.set_y(-15)
+                            self.set_font("Helvetica", "I", 8)
+                            self.set_text_color(128, 128, 128)
+                            self.cell(0, 10, f"Page {self.page_no()}/{{nb}}", align="C")
+
+                    pdf = CustomFleetPDF(orientation="L", unit="mm", format="A4")
+                    pdf.alias_nb_pages()
+                    pdf.add_page()
+
+                    # --- 💡 FIXED: METRICS BLOCKS REMOVED HERE ---
+                    # The data table starts directly at coordinate position Y=42
+                    pdf.set_xy(10, 42)
+                    pdf.set_fill_color(27, 54, 93)
+                    pdf.set_text_color(255, 255, 255)
+                    pdf.set_font("Helvetica", "B", 8)
+
+                    col_widths = [16, 23, 19, 14, 15, 28, 30, 38, 50, 44]
+                    headers = ["G-CODE", "TYPE", "MODEL", "KVA", "HOURS", "STATUS/USER", "FIELD SITE", "TRANSFER STAT",
+                               "LOGGED REASON", "PURPOSE TARGET"]
+
+                    for w, h in zip(col_widths, headers):
+                        pdf.cell(w, 8, h, border=1, align="C", fill=True)
+                    pdf.ln()
+
+                    pdf.set_font("Helvetica", "", 7.5)
+                    pdf.set_text_color(50, 50, 50)
+
+                    fill_toggle = False
+                    for index, row in dataframe.iterrows():
+                        # Handle page overflow bounds natively
+                        if pdf.get_y() > 180:
+                            pdf.add_page()
+                            pdf.set_xy(10, 42)
+                            pdf.set_fill_color(27, 54, 93)
+                            pdf.set_text_color(255, 255, 255)
+                            pdf.set_font("Helvetica", "B", 8)
+                            for w, h in zip(col_widths, headers):
+                                pdf.cell(w, 8, h, border=1, align="C", fill=True)
+                            pdf.ln()
+                            pdf.set_font("Helvetica", "", 7.5)
+                            pdf.set_text_color(50, 50, 50)
+
+                        pdf.set_fill_color(247, 249, 251) if fill_toggle else pdf.set_fill_color(255, 255, 255)
+
+                        pdf.cell(col_widths[0], 7, safe_str(row.get('G-CODE')), border=1, fill=True, align="C")
+                        pdf.cell(col_widths[1], 7, safe_str(row.get('TYPE'))[:14], border=1, fill=True)
+                        pdf.cell(col_widths[2], 7, safe_str(row.get('MODEL'))[:12], border=1, fill=True)
+                        pdf.cell(col_widths[3], 7, f"{int(row.get('GEN_KVA', 0)):,}", border=1, fill=True, align="R")
+                        pdf.cell(col_widths[4], 7, f"{int(row.get('RUN_HRS', 0)):,}", border=1, fill=True, align="R")
+                        pdf.cell(col_widths[5], 7, safe_str(row.get('USER'))[:18], border=1, fill=True)
+                        pdf.cell(col_widths[6], 7, safe_str(row.get('FIELD'))[:18], border=1, fill=True)
+                        pdf.cell(col_widths[7], 7, safe_str(row.get('TO_LOCATION'))[:22], border=1, fill=True)
+                        pdf.cell(col_widths[8], 7, safe_str(row.get('REASON'))[:32], border=1, fill=True)
+
+                        p_val = row.get('PURPOSE', row.get('REMARKS', '-'))
+                        pdf.cell(col_widths[9], 7, safe_str(p_val)[:26], border=1, fill=True)
+
+                        pdf.ln()
+                        fill_toggle = not fill_toggle
+
+                    return bytes(pdf.output())
+
+
+                if filtered_report_df.empty:
+                    st.warning("⚠️ No database items match your current filter parameters to render onto a PDF canvas.")
+                else:
+                    pdf_data = generate_fleet_pdf(filtered_report_df, selected_report_user)
+                    st.download_button(
+                        label="🔴 DOWNLOAD PRINT-READY REPORT DOCUMENT (.PDF)",
+                        data=pdf_data,
+                        file_name=f"Executive_Fleet_Report_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+                        mime="application/pdf",
+                        use_container_width=True
+                    )
+
+            st.markdown("---")
+
+            # --- 5. RENDER FULL MASTER REPORT DATAFRAME VIEWPORT ---
+            st.markdown(
+                f"##### 📋 Generated Master Ledger Viewport ({len(filtered_report_df)} Units Matching Selections)")
+
+            if not filtered_report_df.empty:
+                report_display_df = filtered_report_df.rename(columns={
+                    'G-CODE': 'Asset ID (G-CODE)',
+                    'TYPE': 'Equipment Type',
+                    'MODEL': 'Model Designation',
+                    'GEN_KVA': 'Capacity (KVA)',
+                    'RUN_HRS': 'Accumulated Run Hours',
+                    'USER': 'Operational Status/User',
+                    'FIELD': 'Assigned Field Site',
+                    'TO_LOCATION': 'Transfer Status (Target)',
+                    'MOVE_DATE': 'Last Movement Date',
+                    'REASON': 'Logged Reason',
+                    'PURPOSE': 'Allocation Purpose'
+                })
+
+                target_report_cols = [
+                    'Asset ID (G-CODE)', 'Equipment Type', 'Model Designation', 'Capacity (KVA)',
+                    'Accumulated Run Hours', 'Operational Status/User', 'Assigned Field Site',
+                    'Transfer Status (Target)', 'Logged Reason', 'Allocation Purpose'
+                ]
+
+                available_report_cols = [c for c in target_report_cols if c in report_display_df.columns]
+                styled_report_grid = report_display_df[available_report_cols].style.apply(style_zebra_rows, axis=None)
+
+                st.dataframe(
+                    styled_report_grid,
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        "Capacity (KVA)": st.column_config.NumberColumn(format="%d"),
+                        "Accumulated Run Hours": st.column_config.NumberColumn(format="%d")
+                    }
+                )
+            else:
+                st.warning(
+                    "⚠️ No active asset matches found inside database sheets for the selected filter combinations.")
+
+        else:
+            st.info("No equipment inventory assets found inside database registries to evaluate.")
