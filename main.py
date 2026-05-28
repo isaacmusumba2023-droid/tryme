@@ -846,76 +846,72 @@ else:
                 st.info("No master record data currently loaded.")
 
         with tab4:
-            with tab4:
-                st.subheader("🗑️ Permanent Asset Decommission & Removal")
-                st.warning(
-                    "⚠️ **CRITICAL ACTION:** Deleting an asset will permanently purge its operational data from the live `ASSETS` network registry. This action cannot be undone.")
+            if not df.empty:
+                # 1. Provide an isolated drop-down to pick the asset to delete
+                delete_options = sorted(df['G-CODE'].dropna().unique().tolist())
+                target_gcode = st.selectbox(
+                    "Select Asset G-CODE to PERMANENTLY Delete:",
+                    options=delete_options,
+                    key="select_gcode_deletion_mgr"
+                )
 
-                if not df.empty:
-                    # 1. Provide an isolated drop-down to pick the asset to delete
-                    delete_options = sorted(df['G-CODE'].dropna().unique().tolist())
-                    target_gcode = st.selectbox(
-                        "Select Asset G-CODE to PERMANENTLY Delete:",
-                        options=delete_options,
-                        key="select_gcode_deletion_mgr"
-                    )
+                # 2. Retrieve a quick snapshot of the record before dropping it (for the audit trail)
+                with st.spinner(f"Verifying existence of {target_gcode}..."):
+                    try:
+                        live_check = supabase.table("ASSETS").select("*").eq("G-CODE", target_gcode).execute()
+                        if live_check.data:
+                            deletion_snapshot = live_check.data[0]
 
-                    # 2. Retrieve a quick snapshot of the record before dropping it (for the audit trail)
-                    with st.spinner(f"Verifying existence of {target_gcode}..."):
-                        try:
-                            live_check = supabase.table("ASSETS").select("*").eq("G-CODE", target_gcode).execute()
-                            if live_check.data:
-                                deletion_snapshot = live_check.data[0]
-
-                                # Display a quick summary so the operator knows exactly what they are deleting
-                                st.info(
-                                    f"**Asset Identified:** {target_gcode}  \n"
-                                    f"**Type/Model:** {deletion_snapshot.get('TYPE', '—')} / {deletion_snapshot.get('MODEL', '—')}  \n"
-                                    f"**Current Location:** {deletion_snapshot.get('TO_LOCATION', '—')}  \n"
-                                    f"**Accumulated Hours:** {deletion_snapshot.get('RUN_HRS', 0):,} hrs"
-                                )
-                            else:
-                                st.error(f"Asset {target_gcode} could not be found in the database layer.")
-                                st.stop()
-                        except Exception as read_err:
-                            st.error(f"Failed to fetch asset metadata: {read_err}")
-                            st.stop()
-
-                    st.markdown("---")
-
-                    # 3. Two-Factor Safety Confirmation Checkbox
-                    confirm_gate = st.checkbox(
-                        f"I explicitly confirm that I want to completely delete asset **{target_gcode}** from the system database.",
-                        key=f"gate_delete_{target_gcode}"
-                    )
-
-                    # 4. Destruction Button Execution Area
-                    if st.button(f"💥 PERMANENTLY DESTROY {target_gcode}", use_container_width=True, type="primary",
-                                 disabled=not confirm_gate):
-                        try:
-                            # Execute deletion row-match query against Supabase
-                            supabase.table("ASSETS").delete().eq("G-CODE", target_gcode).execute()
-
-                            # 5. Log the incident into your Tracking Architecture
-                            log_audit_event(
-                                target_gcode,
-                                "DELETE",
-                                "DECOMMISSIONED",
-                                f"Asset permanently purged from system registries by administrative override.",
-                                deletion_snapshot,
-                                {}  # Empty object representing state after total destruction
+                            # Display a quick summary so the operator knows exactly what they are deleting
+                            st.info(
+                                f"**Asset Identified:** {target_gcode}  \n"
+                                f"**Type/Model:** {deletion_snapshot.get('TYPE', '—')} / {deletion_snapshot.get('MODEL', '—')}  \n"
+                                f"**Current Location:** {deletion_snapshot.get('TO_LOCATION', '—')}  \n"
+                                f"**Accumulated Hours:** {deletion_snapshot.get('RUN_HRS', 0):,} hrs"
                             )
+                        else:
+                            st.error(f"Asset {target_gcode} could not be found in the database layer.")
+                            st.stop()
+                    except Exception as read_err:
+                        st.error(f"Failed to fetch asset metadata: {read_err}")
+                        st.stop()
 
-                            st.success(f"Asset {target_gcode} successfully deleted from all network registries.")
+                st.markdown("---")
 
-                            # Clear system cache and trigger immediate layout sync
-                            st.cache_data.clear()
-                            st.rerun()
+                # 3. Two-Factor Safety Confirmation Checkbox
+                confirm_gate = st.checkbox(
+                    f"I explicitly confirm that I want to completely delete asset **{target_gcode}** from the system database.",
+                    key=f"gate_delete_{target_gcode}"
+                )
 
-                        except Exception as delete_err:
-                            st.error(f"Supabase Deletion Execution Error: {delete_err}")
-                else:
-                    st.info("No master record data currently loaded available to purge.")
+                # 4. Destruction Button Execution Area
+                if st.button(f"💥 PERMANENTLY DESTROY {target_gcode}", use_container_width=True, type="primary",
+                             disabled=not confirm_gate):
+                    try:
+                        # Execute deletion row-match query against Supabase
+                        supabase.table("ASSETS").delete().eq("G-CODE", target_gcode).execute()
+
+                        # 5. Log the incident into your Tracking Architecture
+                        log_audit_event(
+                            target_gcode,
+                            "DELETE",
+                            "DECOMMISSIONED",
+                            f"Asset permanently purged from system registries by administrative override.",
+                            deletion_snapshot,
+                            {}  # Empty object representing state after total destruction
+                        )
+
+                        st.success(f"Asset {target_gcode} successfully deleted from all network registries.")
+
+                        # Clear system cache and trigger immediate layout sync
+                        st.cache_data.clear()
+                        st.rerun()
+
+                    except Exception as delete_err:
+                        st.error(f"Supabase Deletion Execution Error: {delete_err}")
+            else:
+                st.info("No master record data currently loaded available to purge.")
+
 
         with tab5:
             st.caption("📋 UPDATES REPORT FOR GENSET FIELD SECTIONS:")
@@ -1028,10 +1024,9 @@ else:
                 st.info("No audit transactions logged inside tracking structures yet.")
 
         with tab6:
-            st.markdown("##### 🛠️ GENSET- PROFILE AS SELECTED  G-CODE")
-            st.caption("Real-time monitoring, diagnostic breakdowns, and maintenance lifecycles for field operations assets")
+            st.caption(
+                "Real-time monitoring, diagnostic breakdowns, and location-based asset tracking for field operations.")
 
-            # --- 1. DATAFRAME INGESTION & LIFECYCLE ---
             try:
                 fleet_df = get_assets_df()
             except Exception as e:
@@ -1039,90 +1034,162 @@ else:
                 fleet_df = pd.DataFrame()
 
             if not fleet_df.empty:
-                # --- SANITIZE NUMERICAL COLUMNS FOR AGGREGATION ACCURACY ---
                 if 'GEN_KVA' in fleet_df.columns:
                     fleet_df['GEN_KVA'] = pd.to_numeric(fleet_df['GEN_KVA'], errors='coerce').fillna(0).astype(int)
                 if 'RUN_HRS' in fleet_df.columns:
                     fleet_df['RUN_HRS'] = pd.to_numeric(fleet_df['RUN_HRS'], errors='coerce').fillna(0).astype(int)
 
 
-                # Safe String Transformer utility locally scoped to block character exceptions
                 def safe_str(val):
                     if val is None or pd.isna(val) or str(val).strip().upper() == "NONE":
                         return "-"
                     return str(val).strip().encode('ascii', 'ignore').decode('ascii')
 
-                all_gcodes = ["--- SELECT A SPECIFIC G-CODE FOR FULL PROFILE ---"] + sorted(
-                    fleet_df['G-CODE'].dropna().unique().tolist()
+
+                # Dynamic toggle configuration
+                search_mode = st.radio(
+                    "Choose Search Vector:",
+                    ["🔍 Search by G-CODE", "📍 Search by Location Pipeline"],
+                    horizontal=True
                 )
 
-                selected_gcode_focus = st.selectbox(
-                    "SELECT G-CODE :",
-                    options=all_gcodes,
-                    key="fm_gcode_focus_dropdown"
-                )
+                # =========================================================================
+                # MODE A: SEARCH BY SPECIFIC G-CODE
+                # =========================================================================
+                if search_mode == "🔍 Search by G-CODE":
+                    default_choice = "--- SELECT A SPECIFIC G-CODE FOR FULL PROFILE ---"
+                    all_gcodes = [default_choice] + sorted(fleet_df['G-CODE'].dropna().unique().tolist())
 
-                # Check if the user has locked onto a specific G-CODE
-                if selected_gcode_focus != "--- SELECT A SPECIFIC G-CODE FOR FULL PROFILE ---":
-                    # Isolate the exact matching asset record row
-                    isolated_asset_df = fleet_df[fleet_df['G-CODE'] == selected_gcode_focus]
+                    if "fm_gcode_focus_dropdown" not in st.session_state:
+                        st.session_state["fm_gcode_focus_dropdown"] = default_choice
 
-                    if not isolated_asset_df.empty:
-                        asset_row = isolated_asset_df.iloc[0]
+                    selected_gcode_focus = st.selectbox(
+                        "SELECT G-CODE :",
+                        options=all_gcodes,
+                        key="fm_gcode_focus_dropdown"
+                    )
 
-                        # Render an elegant, high-visibility title header banner for the selected vehicle
-                        st.caption(f" 📋 Full Profile File: {selected_gcode_focus}")
+                    if selected_gcode_focus != default_choice:
+                        isolated_asset_df = fleet_df[fleet_df['G-CODE'] == selected_gcode_focus]
 
-                        # Row 1: Status Badges and Core Spec Metrics
-                        prof_stage = safe_str(asset_row.get('USER'))
-                        prof_fault = safe_str(asset_row.get('REASON'))
+                        if not isolated_asset_df.empty:
+                            asset_row = isolated_asset_df.iloc[0]
 
-                        status_color = "green" if "READY" in prof_stage.upper() or "COMPLETED" in prof_stage.upper() else (
-                            "orange" if "QC" in prof_stage.upper() else "blue")
-                        st.markdown(
-                            f"**Current Status:** :{status_color}[**{prof_stage}**] | **Primary Diagnostics:** *{prof_fault}*")
+                            st.caption(f" 📋 Full Profile File: {selected_gcode_focus}")
+                            prof_stage = safe_str(asset_row.get('USER'))
+                            prof_fault = safe_str(asset_row.get('REASON'))
 
-                        # Draw a neat progress tracker visual for the vehicle's progress
-                        progress_val = 1.0 if "READY" in prof_stage.upper() or "COMPLETED" in prof_stage.upper() else (
-                            0.7 if "QC" in prof_stage.upper() else (0.4 if "REPAIR" in prof_stage.upper() else 0.1))
-                        st.progress(progress_val)
+                            status_color = "green" if "READY" in prof_stage.upper() or "COMPLETED" in prof_stage.upper() else (
+                                "orange" if "QC" in prof_stage.upper() else "blue")
+                            st.markdown(
+                                f"**Current Status:** :{status_color}[**{prof_stage}**] | **Primary Diagnostics:** *{prof_fault}*")
 
-                        st.caption("#### 🔍 Master Specifications Card")
+                            progress_val = 1.0 if "READY" in prof_stage.upper() or "COMPLETED" in prof_stage.upper() else (
+                                0.7 if "QC" in prof_stage.upper() else (0.4 if "REPAIR" in prof_stage.upper() else 0.1))
+                            st.progress(progress_val)
 
-                        # Split layout blocks to reveal all database columns mapped natively
-                        card_col1, card_col2, card_col3 = st.columns(3)
+                            st.caption("#### 🔍 Master Specifications Card")
+                            card_col1, card_col2, card_col3 = st.columns(3)
 
-                        with card_col1:
-                            st.info("⚙️ Mechanical Inventory Spec")
-                            st.markdown(f"**Asset Code (G-CODE):** `{safe_str(asset_row.get('G-CODE'))}`")
-                            st.markdown(f"**GEN_TYPE:** {safe_str(asset_row.get('TYPE'))}")
-                            st.markdown(f"**GEN_Model:** {safe_str(asset_row.get('MODEL'))}")
-                            st.markdown(f"**Capacity Rating:** {int(asset_row.get('GEN_KVA', 0)):,} KVA")
-                            st.markdown(f"**Operating Timeline:** {int(asset_row.get('RUN_HRS', 0)):,} Hours")
+                            with card_col1:
+                                st.info("⚙️ Mechanical Inventory Spec")
+                                st.markdown(f"**Asset Code (G-CODE):** `{safe_str(asset_row.get('G-CODE'))}`")
+                                st.markdown(f"**GEN_TYPE:** {safe_str(asset_row.get('TYPE'))}")
+                                st.markdown(f"**GEN_Model:** {safe_str(asset_row.get('MODEL'))}")
+                                st.markdown(f"**Capacity Rating:** {int(asset_row.get('GEN_KVA', 0)):,} KVA")
+                                st.markdown(f"**Operating Timeline:** {int(asset_row.get('RUN_HRS', 0)):,} Hours")
 
-                        with card_col2:
-                            st.warning("🔧 Workshop Workshop Diagnostics")
-                            st.markdown(f"**Assigned Stage:** `{prof_stage}`")
-                            st.markdown(f"**FIELD_LOCATION:** {safe_str(asset_row.get('FIELD'))}")
-                            st.markdown(f"**Reported Mechanical Issue:** *{prof_fault}*")
+                            with card_col2:
+                                st.warning("🔧 Workshop Diagnostics")
+                                st.markdown(f"**Assigned Stage:** `{prof_stage}`")
+                                st.markdown(f"**FIELD_LOCATION:** {safe_str(asset_row.get('FIELD'))}")
+                                st.markdown(f"**Reported Mechanical Issue:** *{prof_fault}*")
+                                p_notes = asset_row.get('PURPOSE', asset_row.get('REMARKS', '-'))
+                                st.markdown(f"**Technician Maintenance Action Logs:** {safe_str(p_notes)}")
 
-                            # Fetch comments dynamically from PURPOSE or REMARKS rows safely
-                            p_notes = asset_row.get('PURPOSE', asset_row.get('REMARKS', '-'))
-                            st.markdown(f"**Technician Maintenance Action Logs:** {safe_str(p_notes)}")
+                            with card_col3:
+                                st.success("🚚 Dispatch & Logistics Targets")
+                                st.markdown(f"**Target Site Post-Repair:** {safe_str(asset_row.get('TO_LOCATION'))}")
+                                if 'MOVE_DATE' in asset_row:
+                                    st.markdown(
+                                        f"**Last Movement Log Timestamp:** {safe_str(asset_row.get('MOVE_DATE'))}")
+                                if 'SERIAL_NO' in asset_row or 'SERIAL' in asset_row:
+                                    s_val = asset_row.get('SERIAL_NO', asset_row.get('SERIAL', '-'))
+                                    st.markdown(f"**Chassis / Engine Serial No:** `{safe_str(s_val)}`")
 
-                        with card_col3:
-                            st.success("🚚 Dispatch & Logistics Targets")
-                            st.markdown(f"**Target Site Post-Repair:** {safe_str(asset_row.get('TO_LOCATION'))}")
-                            if 'MOVE_DATE' in asset_row:
-                                st.markdown(f"**Last Movement Log Timestamp:** {safe_str(asset_row.get('MOVE_DATE'))}")
-                            if 'SERIAL_NO' in asset_row or 'SERIAL' in asset_row:
-                                s_val = asset_row.get('SERIAL_NO', asset_row.get('SERIAL', '-'))
-                                st.markdown(f"**Chassis / Engine Serial No:** `{safe_str(s_val)}`")
+                            if st.button("⬅️ Back to Global Workshop Fleet Overview Table", use_container_width=True):
+                                st.session_state["fm_gcode_focus_dropdown"] = default_choice
+                                st.rerun()
 
-                        # Provide a quick exit pathway button to jump back out to global view mode instantly
-                        if st.button("⬅️ Back to Global Workshop Fleet Overview Table", use_container_width=True):
-                            st.rerun()
+                # =========================================================================
+                # MODE B: SEARCH BY LOCATION PIPELINE (e.g., BG-0002)
+                # =========================================================================
+                elif search_mode == "📍 Search by Location Pipeline":
+                    # Consolidate unique location tags from both tracking vectors for clean reference lookup
+                    raw_fields = fleet_df['FIELD'].dropna().unique().tolist() + fleet_df[
+                        'TO_LOCATION'].dropna().unique().tolist()
+                    unique_fields = sorted(
+                        list(set([str(x).strip() for x in raw_fields if str(x).strip() not in ["", "----", "-"]])))
 
+                    default_loc_choice = "--- SELECT OR TYPE A LOCATION ---"
+                    loc_options = [default_loc_choice] + unique_fields
+
+                    selected_loc_box = st.selectbox(
+                        "Quick Select Active Location:",
+                        options=loc_options,
+                        help="Select an existing field location from the active registry."
+                    )
+
+                    text_target_location = st.text_input(
+                        "Or Type Custom Location / Code Manually:",
+                        placeholder="e.g. BG-0002, Field Alpha...",
+                        help="Type any part of the field location name or site ID code."
+                    ).strip()
+
+                    target_location = text_target_location if text_target_location else (
+                        "" if selected_loc_box == default_loc_choice else selected_loc_box
+                    )
+
+                    if target_location:
+                        # Multi-column mapping logic check across fields or target coordinates
+                        filtered_location_df = fleet_df[
+                            fleet_df['FIELD'].astype(str).str.contains(target_location, case=False, na=False) |
+                            fleet_df['TO_LOCATION'].astype(str).str.contains(target_location, case=False, na=False)
+                            ]
+
+                        if not filtered_location_df.empty:
+                            total_found = len(filtered_location_df)
+                            st.success(
+                                f"📍 Found **{total_found}** asset(s) currently posted at location: `{target_location}`")
+
+                            for idx, row in filtered_location_df.iterrows():
+                                gcode_lbl = safe_str(row.get('G-CODE'))
+                                stage_lbl = safe_str(row.get('USER'))
+
+                                with st.expander(f"📦 Asset ID: {gcode_lbl} — Current Stage: {stage_lbl}",
+                                                 expanded=True):
+                                    loc_col1, loc_col2, loc_col3 = st.columns(3)
+
+                                    with loc_col1:
+                                        st.info("⚙️ Mechanical Spec")
+                                        st.markdown(f"**G-CODE:** `{gcode_lbl}`")
+                                        st.markdown(
+                                            f"**Model:** {safe_str(row.get('TYPE'))} / {safe_str(row.get('MODEL'))}")
+                                        st.markdown(f"**Rating:** {int(row.get('GEN_KVA', 0)):,} KVA")
+
+                                    with loc_col2:
+                                        st.warning("🔧 Operational Diagnostics")
+                                        st.markdown(f"**Registered Field:** `{safe_str(row.get('FIELD'))}`")
+                                        st.markdown(f"**Current Run Hours:** {int(row.get('RUN_HRS', 0)):,} Hrs")
+                                        st.markdown(f"**Reported Issue:** *{safe_str(row.get('REASON'))}*")
+
+                                    with loc_col3:
+                                        st.success("🚚 Dispatch Targets")
+                                        st.markdown(f"**Target Destination:** {safe_str(row.get('TO_LOCATION'))}")
+                                        p_notes_loc = row.get('PURPOSE', row.get('REMARKS', '-'))
+                                        st.markdown(f"**Technician Logs:** {safe_str(p_notes_loc)}")
+                        else:
+                            st.warning(f"No active asset matches found for location criteria: `{target_location}`")
 
     # =====================================================================
     # 3. SETTINGS MATRIX PLATFORM
