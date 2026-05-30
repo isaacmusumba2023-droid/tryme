@@ -1947,8 +1947,9 @@ else:
         st.info("Scada/IoT streaming pipeline processing endpoints interface metrics offline.")
     #=======================================================================================================
     elif navigation_target == "REPORTS":
-        st.subheader("📋 Centralized Field Operations Reporting Cockpit")
-        st.caption("Generate, filter, and export live executive-ready reports across fleet segments")
+        st.markdown("📋 Centralized Field Operations Reports",text_alignment="center")
+        ("---")
+
 
         # --- 1. COLLECT DATAFRAME SOURCES ---
         try:
@@ -1972,28 +1973,16 @@ else:
             if 'RUN_HRS' in fleet_df.columns:
                 fleet_df['RUN_HRS'] = pd.to_numeric(fleet_df['RUN_HRS'], errors='coerce').fillna(0).astype(int)
 
-            # --- 2. GLOBAL EXECUTIVE FLEET METRICS ---
-            st.markdown("##### 📊 Global Fleet Summary Metrics")
 
             total_units = len(fleet_df)
             total_capacity = fleet_df['GEN_KVA'].sum() if 'GEN_KVA' in fleet_df.columns else 0
             avg_hours = fleet_df['RUN_HRS'].mean() if 'RUN_HRS' in fleet_df.columns else 0
             total_incidents = len(audit_df) if not audit_df.empty else 0
 
-            rep_kpi1, rep_kpi2, rep_kpi3, rep_kpi4 = st.columns(4)
-            with rep_kpi1:
-                st.metric(label="📟 ACTIVE DEPLOYED FLEET", value=f"{total_units:,} Units", border=True)
-            with rep_kpi2:
-                st.metric(label="⚡ TOTAL CAPACITY METRIC", value=f"{total_capacity:,} KVA", border=True)
-            with rep_kpi3:
-                st.metric(label="⏳ AVG RUNNING TIMELINE", value=f"{int(avg_hours):,} Hrs", border=True)
-            with rep_kpi4:
-                st.metric(label="📜 AUDITED SYSTEM EVENTS", value=f"{total_incidents:,} Actions", border=True)
 
-            st.markdown("---")
 
             # --- 3. FILTER ENGINE WORKBENCH ---
-            st.markdown("##### 🛠️ Report Generation Filter Engine")
+
             filter_col1, filter_col2, filter_col3 = st.columns(3)
 
             with filter_col1:
@@ -2025,7 +2014,7 @@ else:
                 filtered_report_df = filtered_report_df[filtered_report_df['TYPE'] == selected_report_type]
 
             # --- DYNAMIC OPERATIONAL PROFILE BREAKDOWNS ---
-            st.markdown("##### 📈 Granular Operational Analysis Profiles")
+
             an_col1, an_col2, an_col3 = st.columns(3)
 
             with an_col1:
@@ -2058,13 +2047,13 @@ else:
                 else:
                     st.caption("No structural PURPOSE data fields present.")
 
-            st.markdown("---")
+
 
             # --- 4. DATA EXPORT STUDIO ---
-            st.markdown("##### 💾 Professional Document Export Studio")
+            st.caption("Document Export ")
 
             export_mode = st.radio(
-                "Choose Target Presentation Document Format:",
+                "Choose Format:",
                 options=["Excel Spreadsheet (.xlsx)", "Print-Ready Document (.pdf)"],
                 horizontal=True,
                 key="document_export_mode_selector"
@@ -2188,7 +2177,7 @@ else:
 
                             self.set_y(14)
 
-                            self.cell(0, 8, "   FIELD OPERATIONS FLEET SUMMARY REPORT", ln=True)
+                            self.cell(0, 8, "   FIELD OPERATIONS GENSET SUMMARY REPORT", ln=True)
 
                             self.set_font("Helvetica", "I", 9)
 
