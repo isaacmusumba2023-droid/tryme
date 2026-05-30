@@ -265,6 +265,78 @@ else:
         <div class="custom-topbar"><div class="topbar-brand">FIELD OPERATIONS DIGITAL ASSETS MONITORING SYSTEM</div></div>
         """, unsafe_allow_html=True
     )
+    # Injecting Custom CSS to align tabs 2px below the blue header bar
+    st.markdown("""
+        <style>
+        /* =====================================================================
+           0. PULL TABS TO TOP (Reduces distance below blue bar to 2px)
+           ===================================================================== */
+        div[data-testid="stTabBar"] {
+            margin-top: -40px !important; /* Pulls navigation tabs upwards */
+            margin-bottom: 0px !important;
+        }
+
+        .element-container:has(div[data-baseweb="tab-list"]) {
+            margin-top: -15px !important; /* Counteracts inner element wrapper gaps */
+        }
+
+        /* =====================================================================
+           1. Global Tab Navigation Container Bar 
+           ===================================================================== */
+        div[data-baseweb="tab-list"] {
+            background-color: #f8f9fa !important; /* Light subtle grey backdrop */
+            border: 1px solid #e0e0e0 !important;   /* Clean outer boundary border */
+            border-radius: 8px 8px 0px 0px !important; /* Rounded top edges */
+            padding: 6px 12px 6px 12px !important;
+            gap: 8px !important;                  /* Add separation space between tabs */
+            margin-top: 2px !important;           /* Holds the absolute 2px boundary gap */
+        }
+
+        /* =====================================================================
+           2. Inactive Tab Buttons
+           ===================================================================== */
+        button[data-baseweb="tab"] {
+            background-color: #ffffff !important;
+            border: 1px solid #dcdcdc !important;
+            border-bottom: none !important; /* Keep bottom flat to merge with content frame */
+            border-radius: 6px 6px 0px 0px !important;
+            padding: 8px 16px !important;
+            font-weight: 500 !important;
+            color: #666666 !important;
+            transition: all 0.2s ease-in-out !important;
+        }
+
+        /* 3. Hover state effect for tabs */
+        button[data-baseweb="tab"]:hover {
+            color: #1f77b4 !important; /* Subtle blue primary tint on hover */
+            background-color: #f1f3f5 !important;
+            border-color: #b0b0b0 !important;
+        }
+
+        /* =====================================================================
+           4. Active / Selected Tab Button
+           ===================================================================== */
+        button[data-baseweb="tab"][aria-selected="true"] {
+            background-color: #ffffff !important;
+            color: #1f77b4 !important;      /* Accent color text */
+            border-color: #1f77b4 !important; /* Accent color border line */
+            font-weight: bold !important;
+            box-shadow: 0px -2px 0px #1f77b4 inset !important; /* Thicker underline accent indicator */
+        }
+
+        /* =====================================================================
+           5. Content Boundary Card Frame Beneath Tabs
+           ===================================================================== */
+        div[data-testid="stTab"] {
+            background-color: #ffffff !important;
+            border: 1px solid #e0e0e0 !important;
+            border-top: none !important;               /* Merge directly with the tab list bar above */
+            border-radius: 0px 0px 8px 8px !important; /* Round out the bottom chassis */
+            padding: 24px !important;                  /* Clean breathing room for fields inside */
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.03) !important; /* Soft modern elevation drop shadow */
+        }
+        </style>
+    """, unsafe_allow_html=True)
 
     user_clearance_role = st.session_state["user_role"]
     if user_clearance_role in ["MANAGER", "DEVELOPER", "SUPERVISOR", "ENGINEER"]:
@@ -478,7 +550,7 @@ else:
                 st.info("No equipment inventory assets found inside database registries.")
 
         with tab2:
-            st.caption("Step 1: Select Engine Specification Profile Matrix")
+            st.caption("ADDING NEW ASSET",text_alignment="center")
             m_col1, m_col2, m_col3 = st.columns(3)
             with m_col1:
                 u_type = st.selectbox('Select Manufacturer TYPE:', options=TYPE_LIST, key="add_type_outside")
@@ -494,9 +566,6 @@ else:
                 u_kva = st.number_input('Assigned Rating (KVA):', min_value=0, value=calculated_kva, step=10,
                                         key="add_kva_outside")
 
-            st.markdown("---")
-            st.caption("Step 2: select field")
-
             cascade_col1, cascade_col2, cascade_col3 = st.columns(3)
             with cascade_col1:
                 u_field = st.selectbox('TO_FIELD :', options=LIVE_FIELD_OPTIONS, key="add_field_cascade")
@@ -511,30 +580,73 @@ else:
                     field_matched_df['area_name'] == u_area] if u_area != '----' else pd.DataFrame()
                 ALLOWED_LOCATIONS = ['----'] + sorted(
                     area_matched_df['location_name'].unique().tolist()) if not area_matched_df.empty else ['----']
-                u_location = st.selectbox('TO_LOCATION :', options=ALLOWED_LOCATIONS,
-                                          key="add_location_cascade")
+                u_location = st.selectbox('TO_LOCATION :', options=ALLOWED_LOCATIONS, key="add_location_cascade")
+
+            # --- CSS Mixin to adjust vertical text-align balance ---
+            LABEL_STYLE = "<p style='margin-top:8px; font-weight:bold; text-align:right; font-size:13px; color:#333333;'>{}</p>"
 
             with st.form('ASSET_ADD_LOGISTICS_FORM', clear_on_submit=True):
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    u_transfer = st.selectbox('TRANSFER_STATUS:', options=TRANS_LIST, key="add_transfer")
-                    u_from_location = st.selectbox('FROM_LOCATION:', options=MAPPED_LOCATIONS_POOL, key="add_from_loc")
-                    g_code = st.text_input('ENTER G-CODE:', value='', key="add_gcode")
-                with col2:
-                    u_serial = st.text_input('SERIAL_NO:', value='', key="add_serial")
-                    u_manuf_date = st.date_input('MANUF_YR:', min_value=min_date, max_value=max_date, key="add_manuf")
-                    u_service_yr = st.date_input('KOC_SERVICE_YR:', min_value=min_date, max_value=max_date,
-                                                 key="add_service")
-                with col3:
-                    u_run_hr = st.number_input('RUN_HRS LOG:', min_value=0, key="add_run_hrs")
-                    u_appr_kva = st.number_input('APPR_KVA:', min_value=0, key="add_appr")
-                    u_user = st.selectbox('ASSIGNED USER:', options=USER_LIST, key="add_user")
 
-                m_col_left, m_col_right = st.columns([1, 3])
-                with m_col_left:
-                    u_move_date = st.date_input('MOVE_DATE:', min_value=min_date, max_value=max_date, key="add_move_dt")
-                with m_col_right:
-                    u_reason = st.text_area("REASON / REMARKS:", value='', key="add_reason", height=68)
+
+                # --- ROW 1 ---
+                r1_lbl1, r1_val1, r1_lbl2, r1_val2, r1_lbl3, r1_val3 = st.columns([1.2, 2, 1.2, 2, 1.2, 2])
+                with r1_lbl1:
+                    st.markdown(LABEL_STYLE.format("TRANSFER:"), unsafe_allow_html=True)
+                with r1_val1:
+                    u_transfer = st.selectbox('', options=TRANS_LIST, key="add_transfer", label_visibility="collapsed")
+                with r1_lbl2:
+                    st.markdown(LABEL_STYLE.format("SERIAL NO:"), unsafe_allow_html=True)
+                with r1_val2:
+                    u_serial = st.text_input('', value='', key="add_serial", label_visibility="collapsed")
+                with r1_lbl3:
+                    st.markdown(LABEL_STYLE.format("RUN HOURS:"), unsafe_allow_html=True)
+                with r1_val3:
+                    u_run_hr = st.number_input('', min_value=0, key="add_run_hrs", label_visibility="collapsed")
+
+                # --- ROW 2 ---
+                r2_lbl1, r2_val1, r2_lbl2, r2_val2, r2_lbl3, r2_val3 = st.columns([1.2, 2, 1.2, 2, 1.2, 2])
+                with r2_lbl1:
+                    st.markdown(LABEL_STYLE.format("FROM LOC:"), unsafe_allow_html=True)
+                with r2_val1:
+                    u_from_location = st.selectbox('', options=MAPPED_LOCATIONS_POOL, key="add_from_loc",
+                                                   label_visibility="collapsed")
+                with r2_lbl2:
+                    st.markdown(LABEL_STYLE.format("MANUF YR:"), unsafe_allow_html=True)
+                with r2_val2:
+                    u_manuf_date = st.date_input('', min_value=min_date, max_value=max_date, key="add_manuf",
+                                                 label_visibility="collapsed")
+                with r2_lbl3:
+                    st.markdown(LABEL_STYLE.format("APPR KVA:"), unsafe_allow_html=True)
+                with r2_val3:
+                    u_appr_kva = st.number_input('', min_value=0, key="add_appr", label_visibility="collapsed")
+
+                # --- ROW 3 ---
+                r3_lbl1, r3_val1, r3_lbl2, r3_val2, r3_lbl3, r3_val3 = st.columns([1.2, 2, 1.2, 2, 1.2, 2])
+                with r3_lbl1:
+                    st.markdown(LABEL_STYLE.format("G-CODE:"), unsafe_allow_html=True)
+                with r3_val1:
+                    g_code = st.text_input('', value='', key="add_gcode", label_visibility="collapsed")
+                with r3_lbl2:
+                    st.markdown(LABEL_STYLE.format("SERVICE YR:"), unsafe_allow_html=True)
+                with r3_val2:
+                    u_service_yr = st.date_input('', min_value=min_date, max_value=max_date, key="add_service",
+                                                 label_visibility="collapsed")
+                with r3_lbl3:
+                    st.markdown(LABEL_STYLE.format("USER:"), unsafe_allow_html=True)
+                with r3_val3:
+                    u_user = st.selectbox('', options=USER_LIST, key="add_user", label_visibility="collapsed")
+
+                # --- ROW 4 ---
+                r4_lbl1, r4_val1, r4_lbl2, r4_val2 = st.columns([1.2, 2, 1.2, 5.2])
+                with r4_lbl1:
+                    st.markdown(LABEL_STYLE.format("MOVE DATE:"), unsafe_allow_html=True)
+                with r4_val1:
+                    u_move_date = st.date_input('', min_value=min_date, max_value=max_date, key="add_move_dt",
+                                                label_visibility="collapsed")
+                with r4_lbl2:
+                    st.markdown(LABEL_STYLE.format("REMARKS:"), unsafe_allow_html=True)
+                with r4_val2:
+                    u_reason = st.text_area("", value='', key="add_reason", height=42, label_visibility="collapsed")
 
                 if st.form_submit_button("SAVE NEW ASSET TO DATABASE", use_container_width=True):
                     if not g_code.strip():
@@ -567,8 +679,11 @@ else:
                         except Exception as err:
                             st.error(f"Supabase Transmission Error: {err}")
 
+        # =====================================================================
+        # TAB 3: UPDATE / MODIFY EXISTING FIELD ASSET
+        # =====================================================================
         with tab3:
-            st.subheader("Modify Existing Field Asset")
+            st.caption("Modify Existing Field Asset",text_alignment="center")
             if not df.empty:
                 asset_options = sorted(df['G-CODE'].dropna().unique().tolist())
                 selected_gcode = st.selectbox("Select Asset G-CODE to Update:", options=asset_options,
@@ -591,8 +706,6 @@ else:
                     v = str(val).strip() if pd.notna(val) and val is not None else '----'
                     return opt_list.index(v) if v in opt_list else 0
 
-
-                st.markdown("##### Dynamic Operational Cascade Routing Workflow")
                 up_cascade_col1, up_cascade_col2, up_cascade_col3 = st.columns(3)
 
                 with up_cascade_col1:
@@ -621,32 +734,24 @@ else:
                                                index=get_index(UP_ALLOWED_LOCATIONS, db_loc),
                                                key=f"up_to_loc_cascade_{selected_gcode}")
 
-                # 💡 NEW Workflow: Live Database Lookup for existing assets at selected TO_LOCATION
                 allow_submission = True
-
                 if up_location != '----' and up_location != db_loc:
                     try:
-                        # Search if any OTHER active asset is already stationed at this location
                         existing_check = supabase.table("ASSETS").select("G-CODE", "MODEL", "TRANSFER_STATUS").eq(
                             "TO_LOCATION", up_location).neq("G-CODE", selected_gcode).execute()
 
                         if existing_check.data:
-                            allow_submission = False  # Lock submission down initially
-
-                            # Collate assets currently deployed there
+                            allow_submission = False
                             clashing_assets = ", ".join(
                                 [f"{item.get('G-CODE')} ({item.get('MODEL', 'Unknown Model')})" for item in
                                  existing_check.data])
-
                             st.error(
                                 f"⚠️ **LOCATION CONFLICT:** The location **{up_location}** already has an active asset assigned to it: **{clashing_assets}**.")
 
-                            # Prompt user choice via authorization checkbox
                             bypass_checkbox = st.checkbox(
                                 f"🚨 Allow secondary assignment? Check this box if want to deploy multiple assets to {up_location}.",
                                 key=f"bypass_conflict_{selected_gcode}"
                             )
-
                             if bypass_checkbox:
                                 allow_submission = True
                                 st.success("🔓 Secondary deployment authorized by user.")
@@ -681,113 +786,152 @@ else:
                                 current_type == db_type and db_model in up_allowed_models) else '----'
 
                 with st.form(key=f"ASSET_UPDATE_FORM_GROUP_{selected_gcode}"):
-                    st.markdown("##### Configuration Fields")
-                    config_col1, config_col2, config_col3 = st.columns(3)
-                    with config_col1:
-                        up_type = st.selectbox('Manufacturer TYPE:', options=TYPE_LIST,
-                                               index=TYPE_LIST.index(st.session_state[type_key]), key=type_key,
-                                               disabled=lock_engine_specs)
-                    with config_col2:
+                    cfg_lbl1, cfg_val1, cfg_lbl2, cfg_val2, cfg_lbl3, cfg_val3 = st.columns([1.2, 2, 1.2, 2, 1.2, 2])
+                    with cfg_lbl1:
+                        st.markdown(LABEL_STYLE.format("TYPE:"), unsafe_allow_html=True)
+                    with cfg_val1:
+                        up_type = st.selectbox('', options=TYPE_LIST, index=TYPE_LIST.index(st.session_state[type_key]),
+                                               key=type_key, disabled=lock_engine_specs, label_visibility="collapsed")
+                    with cfg_lbl2:
+                        st.markdown(LABEL_STYLE.format("MODEL:"), unsafe_allow_html=True)
+                    with cfg_val2:
                         model_idx = up_allowed_models.index(st.session_state[model_key]) if st.session_state[
                                                                                                 model_key] in up_allowed_models else 0
-                        up_model = st.selectbox('Engine MODEL:', options=up_allowed_models,
-                                                index=model_idx, key=model_key, disabled=lock_engine_specs)
-                    with config_col3:
+                        up_model = st.selectbox('', options=up_allowed_models, index=model_idx, key=model_key,
+                                                disabled=lock_engine_specs, label_visibility="collapsed")
+                    with cfg_lbl3:
+                        st.markdown(LABEL_STYLE.format("KVA RATING:"), unsafe_allow_html=True)
+                    with cfg_val3:
                         up_matched = up_filtered[
                             up_filtered['model'] == up_model] if up_model != '----' else pd.DataFrame()
                         fallback_kva = int(up_matched.iloc[0]['kva']) if not up_matched.empty else 0
                         initial_kva = db_kva if (up_type == db_type and up_model == db_model) else fallback_kva
-                        up_kva = st.number_input('Assigned Rating (KVA):', min_value=0, value=initial_kva, step=10,
-                                                 key=f"up_kva_widget_{selected_gcode}", disabled=lock_engine_specs)
+                        up_kva = st.number_input('', min_value=0, value=initial_kva, step=10,
+                                                 key=f"up_kva_widget_{selected_gcode}", disabled=lock_engine_specs,
+                                                 label_visibility="collapsed")
 
-                    st.markdown("---")
-                    st.markdown("##### Independent Tracking Variables & Deployment Metrics")
-                    col1, col2, col3 = st.columns(3)
 
-                    with col1:
-                        up_transfer = st.selectbox('TRANSFER_STATUS :', options=TRANS_LIST,
+                    # --- ROW 1 ---
+                    u1_lbl1, u1_val1, u1_lbl2, u1_val2, u1_lbl3, u1_val3 = st.columns([1.2, 2, 1.2, 2, 1.2, 2])
+                    with u1_lbl1:
+                        st.markdown(LABEL_STYLE.format("TRANSFER:"), unsafe_allow_html=True)
+                    with u1_val1:
+                        up_transfer = st.selectbox('', options=TRANS_LIST,
                                                    index=get_index(TRANS_LIST, asset_row.get('TRANSFER_STATUS')),
-                                                   key=f"up_trans_status_{selected_gcode}")
-                        up_user = st.selectbox('ENTER USER :', options=USER_LIST,
-                                               index=get_index(USER_LIST, asset_row.get('USER')),
-                                               key=f"up_user_{selected_gcode}")
-
-                        PURPOSE_LIST = ['----', 'REPLACEMENT', 'NEW INSTALLATION', 'OFF-HIRE BACKLOAD']
-                        db_purpose = str(asset_row.get('PURPOSE', '')).strip().upper()
-                        up_purpose = st.selectbox(
-                            'Deployment PURPOSE:',
-                            options=PURPOSE_LIST,
-                            index=PURPOSE_LIST.index(db_purpose) if db_purpose in PURPOSE_LIST else 0,
-                            key=f"up_purpose_{selected_gcode}"
-                        )
-
-                    with col2:
-                        up_from_location = st.selectbox('FROM_LOCATION profile:', options=MAPPED_LOCATIONS_POOL,
+                                                   key=f"up_trans_status_{selected_gcode}",
+                                                   label_visibility="collapsed")
+                    with u1_lbl2:
+                        st.markdown(LABEL_STYLE.format("FROM LOC:"), unsafe_allow_html=True)
+                    with u1_val2:
+                        up_from_location = st.selectbox('', options=MAPPED_LOCATIONS_POOL,
                                                         index=get_index(MAPPED_LOCATIONS_POOL,
                                                                         asset_row.get('FROM_LOCATION')),
-                                                        key=f"up_from_loc_{selected_gcode}")
-                        up_serial = st.text_input('SERIAL_NO verification:',
-                                                  value=str(asset_row.get('SERIAL_NO', '')) if asset_row.get(
-                                                      'SERIAL_NO') is not None else '',
-                                                  key=f"up_serial_{selected_gcode}", disabled=lock_engine_specs)
+                                                        key=f"up_from_loc_{selected_gcode}",
+                                                        label_visibility="collapsed")
+                    with u1_lbl3:
+                        st.markdown(LABEL_STYLE.format("MANUF YR:"), unsafe_allow_html=True)
+                    with u1_val3:
+                        def safe_date(val):
+                            import datetime as dt_mod
+                            if pd.isna(val) or not val or str(val).strip() in ["—", "----"]: return dt_mod.date.today()
+                            if isinstance(val, (dt_mod.datetime, dt_mod.date)): return val if isinstance(val,
+                                                                                                         dt_mod.date) else val.date()
+                            try:
+                                return dt_mod.datetime.strptime(str(val).split()[0], "%Y-%m-%d").date()
+                            except:
+                                return dt_mod.date.today()
 
+
+                        up_manuf_date = st.date_input('', value=safe_date(asset_row.get('MANUF_YR')),
+                                                      key=f"up_manuf_{selected_gcode}", disabled=lock_engine_specs,
+                                                      label_visibility="collapsed")
+
+                    # --- ROW 2 ---
+                    u2_lbl1, u2_val1, u2_lbl2, u2_val2, u2_lbl3, u2_val3 = st.columns([1.2, 2, 1.2, 2, 1.2, 2])
+                    with u2_lbl1:
+                        st.markdown(LABEL_STYLE.format("USER:"), unsafe_allow_html=True)
+                    with u2_val1:
+                        up_user = st.selectbox('', options=USER_LIST, index=get_index(USER_LIST, asset_row.get('USER')),
+                                               key=f"up_user_{selected_gcode}", label_visibility="collapsed")
+                    with u2_lbl2:
+                        st.markdown(LABEL_STYLE.format("SERIAL NO:"), unsafe_allow_html=True)
+                    with u2_val2:
+                        up_serial = st.text_input('', value=str(asset_row.get('SERIAL_NO', '')) if asset_row.get(
+                            'SERIAL_NO') is not None else '', key=f"up_serial_{selected_gcode}",
+                                                  disabled=lock_engine_specs, label_visibility="collapsed")
+                    with u2_lbl3:
+                        st.markdown(LABEL_STYLE.format("SERVICE YR:"), unsafe_allow_html=True)
+                    with u2_val3:
+                        up_service_yr = st.date_input('', value=safe_date(asset_row.get('KOC_SERVICE_YR')),
+                                                      key=f"up_service_{selected_gcode}", disabled=lock_engine_specs,
+                                                      label_visibility="collapsed")
+
+                    # --- ROW 3 ---
+                    u3_lbl1, u3_val1, u3_lbl2, u2_val2, u3_lbl3, u3_val3 = st.columns([1.2, 2, 1.2, 2, 1.2, 2])
+                    with u3_lbl1:
+                        st.markdown(LABEL_STYLE.format("PURPOSE:"), unsafe_allow_html=True)
+                    with u3_val1:
+                        PURPOSE_LIST = ['----', 'REPLACEMENT', 'NEW INSTALLATION', 'OFF-HIRE BACKLOAD']
+                        db_purpose = str(asset_row.get('PURPOSE', '')).strip().upper()
+                        up_purpose = st.selectbox('', options=PURPOSE_LIST, index=PURPOSE_LIST.index(
+                            db_purpose) if db_purpose in PURPOSE_LIST else 0, key=f"up_purpose_{selected_gcode}",
+                                                  label_visibility="collapsed")
+                    with u3_lbl2:
+                        st.markdown(LABEL_STYLE.format("APPR KVA:"), unsafe_allow_html=True)
+                    with u2_val2:
                         try:
                             current_appr_kva = int(float(asset_row.get('APPR_KVA', 0)))
                         except:
                             current_appr_kva = 0
-                        up_appr_kva = st.number_input('APPR_KVA verification:', min_value=0, value=current_appr_kva,
-                                                      key=f"up_appr_{selected_gcode}")
-
-                        try:
-                            current_crew = int(float(asset_row.get('CREW', 0)))
-                        except:
-                            current_crew = 0
-                        up_crew = st.number_input('CREW Count Allocated:', min_value=0, value=current_crew, step=1,
-                                                  key=f"up_crew_{selected_gcode}")
-
-                    with col3:
-                        import datetime
-
-
-                        def safe_date(val):
-                            if pd.isna(val) or not val or str(val).strip() in ["—", "----"]:
-                                return datetime.date.today()
-                            if isinstance(val, (datetime.datetime, datetime.date)):
-                                return val if isinstance(val, datetime.date) else val.date()
-                            try:
-                                return datetime.datetime.strptime(str(val).split()[0], "%Y-%m-%d").date()
-                            except:
-                                return datetime.date.today()
-
-
-                        up_manuf_date = st.date_input('MANUF_YR:', value=safe_date(asset_row.get('MANUF_YR')),
-                                                      key=f"up_manuf_{selected_gcode}", disabled=lock_engine_specs)
-                        up_service_yr = st.date_input('KOC_SERVICE_YR:',
-                                                      value=safe_date(asset_row.get('KOC_SERVICE_YR')),
-                                                      key=f"up_service_{selected_gcode}", disabled=lock_engine_specs)
+                        up_appr_kva = st.number_input('', min_value=0, value=current_appr_kva,
+                                                      key=f"up_appr_{selected_gcode}", label_visibility="collapsed")
+                    with u3_lbl3:
+                        st.markdown(LABEL_STYLE.format("RUN HOURS:"), unsafe_allow_html=True)
+                    with u3_val3:
                         try:
                             current_run_hrs = int(float(asset_row.get('RUN_HRS', 0)))
                         except:
                             current_run_hrs = 0
-                        up_run_hr = st.number_input('RUN_HRS:', min_value=0, value=current_run_hrs,
-                                                    key=f"up_run_hrs_{selected_gcode}")
-                        up_move_date = st.date_input('MOVE_DATE:', value=safe_date(asset_row.get('MOVE_DATE')),
-                                                     key=f"up_move_dt_{selected_gcode}")
+                        up_run_hr = st.number_input('', min_value=0, value=current_run_hrs,
+                                                    key=f"up_run_hrs_{selected_gcode}", label_visibility="collapsed")
 
+                    # --- ROW 4 ---
+                    u4_lbl1, u4_val1, u4_lbl2, u4_val2, u4_lbl3, u4_val3 = st.columns([1.2, 2, 1.2, 2, 1.2, 2])
+                    with u4_lbl1:
+                        st.markdown(LABEL_STYLE.format("CREW:"), unsafe_allow_html=True)
+                    with u4_val1:
+                        try:
+                            current_crew = int(float(asset_row.get('CREW', 0)))
+                        except:
+                            current_crew = 0
+                        up_crew = st.number_input('', min_value=0, value=current_crew, step=1,
+                                                  key=f"up_crew_{selected_gcode}", label_visibility="collapsed")
+                    with u4_lbl2:
+                        st.markdown(LABEL_STYLE.format("GC FIELDS:"), unsafe_allow_html=True)
+                    with u4_val2:
                         try:
                             current_gc = int(float(asset_row.get('GC', 0)))
                         except:
                             current_gc = 0
-                        up_gc = st.number_input('GC Fields:', min_value=0, value=current_gc, step=1,
-                                                key=f"up_gc_{selected_gcode}")
+                        up_gc = st.number_input('', min_value=0, value=current_gc, step=1,
+                                                key=f"up_gc_{selected_gcode}", label_visibility="collapsed")
+                    with u4_lbl3:
+                        st.markdown(LABEL_STYLE.format("MOVE DATE:"), unsafe_allow_html=True)
+                    with u4_val3:
+                        up_move_date = st.date_input('', value=safe_date(asset_row.get('MOVE_DATE')),
+                                                     key=f"up_move_dt_{selected_gcode}", label_visibility="collapsed")
 
-                    st.markdown("---")
-                    up_reason = st.text_area("REASON / TRANSFER REMARKS:",
-                                             value=str(asset_row.get('REASON', '')) if asset_row.get(
-                                                 'REASON') is not None else '',
-                                             key=f"up_reason_{selected_gcode}")
 
-                    # 💡 Changed: Added block submission verification check
+
+                    # --- ROW 5 (Remarks) ---
+                    rem_lbl, rem_val = st.columns([1.2, 8.4])
+                    with rem_lbl:
+                        st.markdown(LABEL_STYLE.format("REMARKS:"), unsafe_allow_html=True)
+                    with rem_val:
+                        up_reason = st.text_area("", value=str(asset_row.get('REASON', '')) if asset_row.get(
+                            'REASON') is not None else '', key=f"up_reason_{selected_gcode}",
+                                                 label_visibility="collapsed", height=52)
+
                     if st.form_submit_button("CLICK TO UPDATE ASSET", use_container_width=True,
                                              key=f"up_btn_{selected_gcode}"):
                         if not allow_submission:
@@ -911,8 +1055,6 @@ else:
                         st.error(f"Supabase Deletion Execution Error: {delete_err}")
             else:
                 st.info("No master record data currently loaded available to purge.")
-
-
         with tab5:
             st.caption("📋 UPDATES REPORT FOR GENSET FIELD SECTIONS:")
             logs_df = get_audit_logs_df()
