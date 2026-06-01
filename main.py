@@ -140,18 +140,135 @@ if not st.session_state["authenticated"]:
     st.markdown(
         """
         <style>
-            .stApp { background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%) !important; }
+            /* 1. High-contrast ambient background to make the mirror shine pop */
+            .stApp {
+                background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #3b82f6 100%) !important;
+            }
             .block-container { padding-top: 5rem !important; }
-            .login-card-container { background-color: #ffffff; border-radius: 14px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); overflow: hidden; border: 1px solid #e0e4ec; }
-            .login-blue-header { background: linear-gradient(90deg, #4da3ff, #80bfff); padding: 2rem 1.5rem; text-align: center; color: #ffffff !important; }
-            .header-title-container { display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 0.4rem; }
-            .header-logo { height: 45px; width: auto; object-fit: contain; }
-            .login-blue-header h2 { color: #ffffff !important; margin: 0 !important; font-weight: 700 !important; font-size: 1.6rem !important; letter-spacing: 0.5px; line-height: 1.2; }
-            .login-blue-header p { color: #f0f5ff !important; margin: 0 !important; font-size: 0.9rem !important; opacity: 0.9; padding-top: 0.5rem; }
+
+            /* 2. The Mirror Glassmorphism Container */
+            .login-card-container {
+                background: rgba(255, 255, 255, 0.06) !important; /* Semi-transparent base tint */
+                backdrop-filter: blur(16px) saturate(120%) !important; /* The mirror refraction effect */
+                -webkit-backdrop-filter: blur(16px) saturate(120%) !important;
+                border-radius: 16px;
+                box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+                border: 1px solid rgba(255, 255, 255, 0.15) !important; /* Crisp reflection edge */
+                overflow: hidden;
+            }
+
+            /* 3. Mirror Top Header */
+            .login-blue-header {
+                background: rgba(255, 255, 255, 0.03) !important;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+                padding: 2.5rem 1.5rem;
+                text-align: center;
+            }
+
+            .header-title-container {
+                display: flex;
+                flex-direction: column; /* Stacks logo cleanly over text */
+                align-items: center;
+                justify-content: center;
+                gap: 14px;
+                margin-bottom: 0.4rem;
+            }
+
+            /* 4. Transparent Mirror Logo Effect */
+            .header-logo {
+                height: 65px;
+                width: auto;
+                object-fit: contain;
+                filter: drop-shadow(0px 4px 8px rgba(0,0,0,0.3)); /* Gives the floating illusion */
+                opacity: 0.75; /* Controlled structural transparency */
+                mix-blend-mode: normal;
+            }
+
+            /* 5. Typography tuning for ultra-dark/glass backgrounds */
+            .login-blue-header h2 {
+                color: #ffffff !important;
+                margin: 0.5rem 0 0px 0 !important;
+                font-weight: 700 !important;
+                font-size: 1.5rem !important;
+                letter-spacing: 0.5px;
+                line-height: 1.3;
+                text-shadow: 0 2px 4px rgba(0,0,0,0.4);
+            }
+            .login-blue-header p {
+                color: #cbd5e1 !important;
+                margin: 0 !important;
+                font-size: 0.85rem !important;
+                opacity: 0.8;
+                padding-top: 0.5rem;
+            }
             .login-form-body { padding: 2rem; }
+
+            /* 6. Making internal Streamlit labels readable over mirror card */
+            .stWidgetLabel p { color: #f8fafc !important; font-weight: 500; }
+            div[data-testid="stForm"] { background: transparent !important; border: none !important; padding: 0 !important; }
         </style>
         """, unsafe_allow_html=True
     )
+
+
+    def get_base64_image(img_path):
+        # Graceful fallback lookups for files named logo.png or logo.pnp
+        target_path = img_path if os.path.exists(img_path) else "logo.png"
+        if os.path.exists(target_path):
+            with open(target_path, "rb") as img_file:
+                return f"data:image/png;base64,{base64.b64encode(img_file.read()).decode()}"
+        return "https://via.placeholder.com/150"
+
+
+    # Set file reference to match your target name assignment
+    logo_file_path = "logo.pnp"
+    img_base64 = get_base64_image(logo_file_path)
+
+    _, login_container_col, _ = st.columns([1, 1.8, 1])
+    with login_container_col:
+        st.markdown('<div class="login-card-container">', unsafe_allow_html=True)
+        st.markdown(
+            f"""
+            <div class="login-blue-header">
+                <div class="header-title-container">
+                    <img src="{img_base64}" class="header-logo" alt="Corporate Logo">
+                    <h2>Field Operations Digital Assets Monitoring System</h2>
+                </div>
+                <p>Enterprise Digital Asset Management Registry Identity Authentication Portal</p>
+            </div>
+            """, unsafe_allow_html=True
+        )
+        st.markdown('<div class="login-form-body">', unsafe_allow_html=True)
+
+        with st.form(key="gateway_security_login_form"):
+            email_input = st.text_input("Account Corporate Email Address:", placeholder="username@company.com").strip()
+            password_input = st.text_input("Account Secret Credentials Key:", type="password", placeholder="••••••••")
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            if st.form_submit_button("VALIDATE SECURITY CREDENTIALS", use_container_width=True):
+                # ... standard authentication logic stays exactly the same ...
+                if not email_input or not password_input:
+                    st.error("❌ Credentials validation failure: Input parameters cannot be blank.")
+                else:
+                    with st.spinner("Processing authorization handshakes..."):
+                        try:
+                            auth_res = supabase.auth.sign_in_with_password(
+                                {"email": email_input, "password": password_input})
+                            target_uid = auth_res.user.id
+                            profile_query = supabase.table("user_profiles").select("role").eq("id",
+                                                                                              target_uid).execute()
+
+                            if profile_query.data:
+                                user_assigned_role = profile_query.data[0]["role"]
+                                st.session_state["authenticated"] = True
+                                st.session_state["auth_user_email"] = auth_res.user.email
+                                st.session_state["user_role"] = user_assigned_role
+                                should_rerun = True
+                            else:
+                                st.error("❌ Access Denied: Profile missing.")
+                        except Exception as auth_fail:
+                            st.error(f"❌ Authentication Denied: {str(auth_fail)}")
+        st.markdown('</div></div>', unsafe_allow_html=True)
 
 
     def get_base64_image(img_path):
@@ -180,7 +297,7 @@ if not st.session_state["authenticated"]:
         )
         st.markdown('<div class="login-form-body">', unsafe_allow_html=True)
 
-        with st.form(key="gateway_security_login_form"):
+        with st.form(key="gateway_security_login_form_unique_suffix"):
             email_input = st.text_input("Account Corporate Email Address:", placeholder="username@company.com").strip()
             password_input = st.text_input("Account Secret Credentials Key:", type="password", placeholder="••••••••")
             st.markdown("<br>", unsafe_allow_html=True)
@@ -550,44 +667,35 @@ else:
                 st.info("No equipment inventory assets found inside database registries.")
 
         with tab2:
-            st.caption("ADDING NEW ASSET",text_alignment="center")
+            st.caption("ADDING NEW ASSET", text_alignment="center")
             m_col1, m_col2, m_col3 = st.columns(3)
             with m_col1:
                 u_type = st.selectbox('Select Manufacturer TYPE:', options=TYPE_LIST, key="add_type_outside")
             with m_col2:
                 add_filtered = mappings_df[mappings_df['type'] == u_type] if u_type != '----' else pd.DataFrame()
-                add_allowed_models = ['----'] + sorted(
-                    add_filtered['model'].unique().tolist()) if not add_filtered.empty else ['----']
+                add_allowed_models = ['----'] + sorted(add_filtered['model'].unique().tolist()) if not add_filtered.empty else ['----']
                 u_model = st.selectbox('Select Engine MODEL:', options=add_allowed_models, key="add_model_outside")
             with m_col3:
-                add_matched_row = add_filtered[
-                    add_filtered['model'] == u_model] if u_model != '----' else pd.DataFrame()
+                add_matched_row = add_filtered[add_filtered['model'] == u_model] if u_model != '----' else pd.DataFrame()
                 calculated_kva = int(add_matched_row.iloc[0]['kva']) if not add_matched_row.empty else 0
-                u_kva = st.number_input('Assigned Rating (KVA):', min_value=0, value=calculated_kva, step=10,
-                                        key="add_kva_outside")
+                u_kva = st.number_input('Assigned Rating (KVA):', min_value=0, value=calculated_kva, step=10, key="add_kva_outside")
 
             cascade_col1, cascade_col2, cascade_col3 = st.columns(3)
             with cascade_col1:
                 u_field = st.selectbox('TO_FIELD :', options=LIVE_FIELD_OPTIONS, key="add_field_cascade")
             with cascade_col2:
-                field_matched_df = routing_df[
-                    routing_df['field_name'] == u_field] if u_field != '----' else pd.DataFrame()
-                ALLOWED_AREAS = ['----'] + sorted(
-                    field_matched_df['area_name'].unique().tolist()) if not field_matched_df.empty else ['----']
+                field_matched_df = routing_df[routing_df['field_name'] == u_field] if u_field != '----' else pd.DataFrame()
+                ALLOWED_AREAS = ['----'] + sorted(field_matched_df['area_name'].unique().tolist()) if not field_matched_df.empty else ['----']
                 u_area = st.selectbox('AREA :', options=ALLOWED_AREAS, key="add_area_cascade")
             with cascade_col3:
-                area_matched_df = field_matched_df[
-                    field_matched_df['area_name'] == u_area] if u_area != '----' else pd.DataFrame()
-                ALLOWED_LOCATIONS = ['----'] + sorted(
-                    area_matched_df['location_name'].unique().tolist()) if not area_matched_df.empty else ['----']
+                area_matched_df = field_matched_df[field_matched_df['area_name'] == u_area] if u_area != '----' else pd.DataFrame()
+                ALLOWED_LOCATIONS = ['----'] + sorted(area_matched_df['location_name'].unique().tolist()) if not area_matched_df.empty else ['----']
                 u_location = st.selectbox('TO_LOCATION :', options=ALLOWED_LOCATIONS, key="add_location_cascade")
 
             # --- CSS Mixin to adjust vertical text-align balance ---
             LABEL_STYLE = "<p style='margin-top:8px; font-weight:bold; text-align:right; font-size:13px; color:#333333;'>{}</p>"
 
             with st.form('ASSET_ADD_LOGISTICS_FORM', clear_on_submit=True):
-
-
                 # --- ROW 1 ---
                 r1_lbl1, r1_val1, r1_lbl2, r1_val2, r1_lbl3, r1_val3 = st.columns([1.2, 2, 1.2, 2, 1.2, 2])
                 with r1_lbl1:
@@ -608,13 +716,11 @@ else:
                 with r2_lbl1:
                     st.markdown(LABEL_STYLE.format("FROM LOC:"), unsafe_allow_html=True)
                 with r2_val1:
-                    u_from_location = st.selectbox('', options=MAPPED_LOCATIONS_POOL, key="add_from_loc",
-                                                   label_visibility="collapsed")
+                    u_from_location = st.selectbox('', options=MAPPED_LOCATIONS_POOL, key="add_from_loc", label_visibility="collapsed")
                 with r2_lbl2:
                     st.markdown(LABEL_STYLE.format("MANUF YR:"), unsafe_allow_html=True)
                 with r2_val2:
-                    u_manuf_date = st.date_input('', min_value=min_date, max_value=max_date, key="add_manuf",
-                                                 label_visibility="collapsed")
+                    u_manuf_date = st.date_input('', min_value=min_date, max_value=max_date, key="add_manuf", label_visibility="collapsed")
                 with r2_lbl3:
                     st.markdown(LABEL_STYLE.format("APPR KVA:"), unsafe_allow_html=True)
                 with r2_val3:
@@ -629,8 +735,7 @@ else:
                 with r3_lbl2:
                     st.markdown(LABEL_STYLE.format("SERVICE YR:"), unsafe_allow_html=True)
                 with r3_val2:
-                    u_service_yr = st.date_input('', min_value=min_date, max_value=max_date, key="add_service",
-                                                 label_visibility="collapsed")
+                    u_service_yr = st.date_input('', min_value=min_date, max_value=max_date, key="add_service", label_visibility="collapsed")
                 with r3_lbl3:
                     st.markdown(LABEL_STYLE.format("USER:"), unsafe_allow_html=True)
                 with r3_val3:
@@ -641,8 +746,7 @@ else:
                 with r4_lbl1:
                     st.markdown(LABEL_STYLE.format("MOVE DATE:"), unsafe_allow_html=True)
                 with r4_val1:
-                    u_move_date = st.date_input('', min_value=min_date, max_value=max_date, key="add_move_dt",
-                                                label_visibility="collapsed")
+                    u_move_date = st.date_input('', min_value=min_date, max_value=max_date, key="add_move_dt", label_visibility="collapsed")
                 with r4_lbl2:
                     st.markdown(LABEL_STYLE.format("REMARKS:"), unsafe_allow_html=True)
                 with r4_val2:
@@ -683,11 +787,10 @@ else:
         # TAB 3: UPDATE / MODIFY EXISTING FIELD ASSET
         # =====================================================================
         with tab3:
-            st.caption("Modify Existing Field Asset",text_alignment="center")
+            st.caption("Modify Existing Field Asset", text_alignment="center")
             if not df.empty:
                 asset_options = sorted(df['G-CODE'].dropna().unique().tolist())
-                selected_gcode = st.selectbox("Select Asset G-CODE to Update:", options=asset_options,
-                                              key="select_gcode_updater")
+                selected_gcode = st.selectbox("Select Asset G-CODE to Update:", options=asset_options, key="select_gcode_updater")
 
                 with st.spinner(f"Retrieving live record for {selected_gcode}..."):
                     try:
@@ -701,57 +804,44 @@ else:
                         st.error(f"Failed to fetch live asset data: {db_err}")
                         st.stop()
 
-
                 def get_index(opt_list, val):
                     v = str(val).strip() if pd.notna(val) and val is not None else '----'
                     return opt_list.index(v) if v in opt_list else 0
+
+                def safe_date(val):
+                    import datetime as dt_mod
+                    if pd.isna(val) or not val or str(val).strip() in ["—", "----"]: return dt_mod.date.today()
+                    if isinstance(val, (dt_mod.datetime, dt_mod.date)): return val if isinstance(val, dt_mod.date) else val.date()
+                    try:
+                        return dt_mod.datetime.strptime(str(val).split()[0], "%Y-%m-%d").date()
+                    except:
+                        return dt_mod.date.today()
 
                 up_cascade_col1, up_cascade_col2, up_cascade_col3 = st.columns(3)
 
                 with up_cascade_col1:
                     db_field = asset_row.get('FIELD', '----')
-                    up_field = st.selectbox('TO_FIELD :', options=LIVE_FIELD_OPTIONS,
-                                            index=get_index(LIVE_FIELD_OPTIONS, db_field),
-                                            key=f"up_field_cascade_{selected_gcode}")
+                    up_field = st.selectbox('TO_FIELD :', options=LIVE_FIELD_OPTIONS, index=get_index(LIVE_FIELD_OPTIONS, db_field), key=f"up_field_cascade_{selected_gcode}")
                 with up_cascade_col2:
-                    up_field_matched_df = routing_df[
-                        routing_df['field_name'] == up_field] if up_field != '----' else pd.DataFrame()
-                    UP_ALLOWED_AREAS = ['----'] + sorted(
-                        up_field_matched_df['area_name'].unique().tolist()) if not up_field_matched_df.empty else [
-                        '----']
+                    up_field_matched_df = routing_df[routing_df['field_name'] == up_field] if up_field != '----' else pd.DataFrame()
+                    UP_ALLOWED_AREAS = ['----'] + sorted(up_field_matched_df['area_name'].unique().tolist()) if not up_field_matched_df.empty else ['----']
                     db_area = asset_row.get('AREA', '----')
-                    up_area = st.selectbox('TO_AREA :', options=UP_ALLOWED_AREAS,
-                                           index=get_index(UP_ALLOWED_AREAS, db_area),
-                                           key=f"up_area_cascade_{selected_gcode}")
+                    up_area = st.selectbox('TO_AREA :', options=UP_ALLOWED_AREAS, index=get_index(UP_ALLOWED_AREAS, db_area), key=f"up_area_cascade_{selected_gcode}")
                 with up_cascade_col3:
-                    up_area_matched_df = up_field_matched_df[
-                        up_field_matched_df['area_name'] == up_area] if up_area != '----' else pd.DataFrame()
-                    UP_ALLOWED_LOCATIONS = ['----'] + sorted(
-                        up_area_matched_df['location_name'].unique().tolist()) if not up_area_matched_df.empty else [
-                        '----']
+                    up_area_matched_df = up_field_matched_df[up_field_matched_df['area_name'] == up_area] if up_area != '----' else pd.DataFrame()
+                    UP_ALLOWED_LOCATIONS = ['----'] + sorted(up_area_matched_df['location_name'].unique().tolist()) if not up_area_matched_df.empty else ['----']
                     db_loc = asset_row.get('TO_LOCATION', '----')
-                    up_location = st.selectbox('TO_LOCATION :', options=UP_ALLOWED_LOCATIONS,
-                                               index=get_index(UP_ALLOWED_LOCATIONS, db_loc),
-                                               key=f"up_to_loc_cascade_{selected_gcode}")
+                    up_location = st.selectbox('TO_LOCATION :', options=UP_ALLOWED_LOCATIONS, index=get_index(UP_ALLOWED_LOCATIONS, db_loc), key=f"up_to_loc_cascade_{selected_gcode}")
 
                 allow_submission = True
                 if up_location != '----' and up_location != db_loc:
                     try:
-                        existing_check = supabase.table("ASSETS").select("G-CODE", "MODEL", "TRANSFER_STATUS").eq(
-                            "TO_LOCATION", up_location).neq("G-CODE", selected_gcode).execute()
-
+                        existing_check = supabase.table("ASSETS").select("G-CODE", "MODEL", "TRANSFER_STATUS").eq("TO_LOCATION", up_location).neq("G-CODE", selected_gcode).execute()
                         if existing_check.data:
                             allow_submission = False
-                            clashing_assets = ", ".join(
-                                [f"{item.get('G-CODE')} ({item.get('MODEL', 'Unknown Model')})" for item in
-                                 existing_check.data])
-                            st.error(
-                                f"⚠️ **LOCATION CONFLICT:** The location **{up_location}** already has an active asset assigned to it: **{clashing_assets}**.")
-
-                            bypass_checkbox = st.checkbox(
-                                f"🚨 Allow secondary assignment? Check this box if want to deploy multiple assets to {up_location}.",
-                                key=f"bypass_conflict_{selected_gcode}"
-                            )
+                            clashing_assets = ", ".join([f"{item.get('G-CODE')} ({item.get('MODEL', 'Unknown Model')})" for item in existing_check.data])
+                            st.error(f"⚠️ **LOCATION CONFLICT:** The location **{up_location}** already has an active asset assigned to it: **{clashing_assets}**.")
+                            bypass_checkbox = st.checkbox(f"🚨 Allow secondary assignment? Check this box if want to deploy multiple assets to {up_location}.", key=f"bypass_conflict_{selected_gcode}")
                             if bypass_checkbox:
                                 allow_submission = True
                                 st.success("🔓 Secondary deployment authorized by user.")
@@ -763,128 +853,90 @@ else:
 
                 db_type = asset_row.get('TYPE', '----')
                 db_model = asset_row.get('MODEL', '----')
-
                 try:
                     db_kva = int(float(asset_row.get('GEN_KVA', 0)))
                 except:
                     db_kva = 0
 
+                # Form execution-safe state caching layer
                 type_key = f"form_type_{selected_gcode}"
                 model_key = f"form_model_{selected_gcode}"
 
-                if type_key not in st.session_state:
+                if type_key not in st.session_state or st.get_option("browser.gatherUsageStats") is False:
                     st.session_state[type_key] = db_type if db_type in TYPE_LIST else '----'
 
                 current_type = st.session_state[type_key]
-                up_filtered = mappings_df[
-                    mappings_df['type'] == current_type] if current_type != '----' else pd.DataFrame()
-                up_allowed_models = ['----'] + sorted(
-                    up_filtered['model'].unique().tolist()) if not up_filtered.empty else ['----']
+                up_filtered = mappings_df[mappings_df['type'] == current_type] if current_type != '----' else pd.DataFrame()
+                up_allowed_models = ['----'] + sorted(up_filtered['model'].unique().tolist()) if not up_filtered.empty else ['----']
 
                 if model_key not in st.session_state:
-                    st.session_state[model_key] = db_model if (
-                                current_type == db_type and db_model in up_allowed_models) else '----'
+                    st.session_state[model_key] = db_model if (current_type == db_type and db_model in up_allowed_models) else '----'
 
                 with st.form(key=f"ASSET_UPDATE_FORM_GROUP_{selected_gcode}"):
                     cfg_lbl1, cfg_val1, cfg_lbl2, cfg_val2, cfg_lbl3, cfg_val3 = st.columns([1.2, 2, 1.2, 2, 1.2, 2])
                     with cfg_lbl1:
                         st.markdown(LABEL_STYLE.format("TYPE:"), unsafe_allow_html=True)
                     with cfg_val1:
-                        up_type = st.selectbox('', options=TYPE_LIST, index=TYPE_LIST.index(st.session_state[type_key]),
-                                               key=type_key, disabled=lock_engine_specs, label_visibility="collapsed")
+                        up_type = st.selectbox('', options=TYPE_LIST, index=TYPE_LIST.index(st.session_state[type_key]), key=f"widget_type_{selected_gcode}", disabled=lock_engine_specs, label_visibility="collapsed")
                     with cfg_lbl2:
                         st.markdown(LABEL_STYLE.format("MODEL:"), unsafe_allow_html=True)
                     with cfg_val2:
-                        model_idx = up_allowed_models.index(st.session_state[model_key]) if st.session_state[
-                                                                                                model_key] in up_allowed_models else 0
-                        up_model = st.selectbox('', options=up_allowed_models, index=model_idx, key=model_key,
-                                                disabled=lock_engine_specs, label_visibility="collapsed")
+                        model_idx = up_allowed_models.index(st.session_state[model_key]) if st.session_state[model_key] in up_allowed_models else 0
+                        up_model = st.selectbox('', options=up_allowed_models, index=model_idx, key=f"widget_model_{selected_gcode}", disabled=lock_engine_specs, label_visibility="collapsed")
                     with cfg_lbl3:
                         st.markdown(LABEL_STYLE.format("KVA RATING:"), unsafe_allow_html=True)
                     with cfg_val3:
-                        up_matched = up_filtered[
-                            up_filtered['model'] == up_model] if up_model != '----' else pd.DataFrame()
+                        up_matched = up_filtered[up_filtered['model'] == up_model] if up_model != '----' else pd.DataFrame()
                         fallback_kva = int(up_matched.iloc[0]['kva']) if not up_matched.empty else 0
                         initial_kva = db_kva if (up_type == db_type and up_model == db_model) else fallback_kva
-                        up_kva = st.number_input('', min_value=0, value=initial_kva, step=10,
-                                                 key=f"up_kva_widget_{selected_gcode}", disabled=lock_engine_specs,
-                                                 label_visibility="collapsed")
-
+                        up_kva = st.number_input('', min_value=0, value=initial_kva, step=10, key=f"up_kva_widget_{selected_gcode}", disabled=lock_engine_specs, label_visibility="collapsed")
 
                     # --- ROW 1 ---
                     u1_lbl1, u1_val1, u1_lbl2, u1_val2, u1_lbl3, u1_val3 = st.columns([1.2, 2, 1.2, 2, 1.2, 2])
                     with u1_lbl1:
                         st.markdown(LABEL_STYLE.format("TRANSFER:"), unsafe_allow_html=True)
                     with u1_val1:
-                        up_transfer = st.selectbox('', options=TRANS_LIST,
-                                                   index=get_index(TRANS_LIST, asset_row.get('TRANSFER_STATUS')),
-                                                   key=f"up_trans_status_{selected_gcode}",
-                                                   label_visibility="collapsed")
+                        up_transfer = st.selectbox('', options=TRANS_LIST, index=get_index(TRANS_LIST, asset_row.get('TRANSFER_STATUS')), key=f"up_trans_status_{selected_gcode}", label_visibility="collapsed")
                     with u1_lbl2:
                         st.markdown(LABEL_STYLE.format("FROM LOC:"), unsafe_allow_html=True)
                     with u1_val2:
-                        up_from_location = st.selectbox('', options=MAPPED_LOCATIONS_POOL,
-                                                        index=get_index(MAPPED_LOCATIONS_POOL,
-                                                                        asset_row.get('FROM_LOCATION')),
-                                                        key=f"up_from_loc_{selected_gcode}",
-                                                        label_visibility="collapsed")
+                        up_from_location = st.selectbox('', options=MAPPED_LOCATIONS_POOL, index=get_index(MAPPED_LOCATIONS_POOL, asset_row.get('FROM_LOCATION')), key=f"up_from_loc_{selected_gcode}", label_visibility="collapsed")
                     with u1_lbl3:
                         st.markdown(LABEL_STYLE.format("MANUF YR:"), unsafe_allow_html=True)
                     with u1_val3:
-                        def safe_date(val):
-                            import datetime as dt_mod
-                            if pd.isna(val) or not val or str(val).strip() in ["—", "----"]: return dt_mod.date.today()
-                            if isinstance(val, (dt_mod.datetime, dt_mod.date)): return val if isinstance(val,
-                                                                                                         dt_mod.date) else val.date()
-                            try:
-                                return dt_mod.datetime.strptime(str(val).split()[0], "%Y-%m-%d").date()
-                            except:
-                                return dt_mod.date.today()
-
-
-                        up_manuf_date = st.date_input('', value=safe_date(asset_row.get('MANUF_YR')),
-                                                      key=f"up_manuf_{selected_gcode}", disabled=lock_engine_specs,
-                                                      label_visibility="collapsed")
+                        up_manuf_date = st.date_input('', value=safe_date(asset_row.get('MANUF_YR')), key=f"up_manuf_{selected_gcode}", disabled=lock_engine_specs, label_visibility="collapsed")
 
                     # --- ROW 2 ---
                     u2_lbl1, u2_val1, u2_lbl2, u2_val2, u2_lbl3, u2_val3 = st.columns([1.2, 2, 1.2, 2, 1.2, 2])
                     with u2_lbl1:
                         st.markdown(LABEL_STYLE.format("USER:"), unsafe_allow_html=True)
                     with u2_val1:
-                        up_user = st.selectbox('', options=USER_LIST, index=get_index(USER_LIST, asset_row.get('USER')),
-                                               key=f"up_user_{selected_gcode}", label_visibility="collapsed")
+                        up_user = st.selectbox('', options=USER_LIST, index=get_index(USER_LIST, asset_row.get('USER')), key=f"up_user_{selected_gcode}", label_visibility="collapsed")
                     with u2_lbl2:
                         st.markdown(LABEL_STYLE.format("SERIAL NO:"), unsafe_allow_html=True)
                     with u2_val2:
-                        up_serial = st.text_input('', value=str(asset_row.get('SERIAL_NO', '')) if asset_row.get(
-                            'SERIAL_NO') is not None else '', key=f"up_serial_{selected_gcode}",
-                                                  disabled=lock_engine_specs, label_visibility="collapsed")
+                        up_serial = st.text_input('', value=str(asset_row.get('SERIAL_NO', '')) if asset_row.get('SERIAL_NO') is not None else '', key=f"up_serial_{selected_gcode}", disabled=lock_engine_specs, label_visibility="collapsed")
                     with u2_lbl3:
                         st.markdown(LABEL_STYLE.format("SERVICE YR:"), unsafe_allow_html=True)
                     with u2_val3:
-                        up_service_yr = st.date_input('', value=safe_date(asset_row.get('KOC_SERVICE_YR')),
-                                                      key=f"up_service_{selected_gcode}", disabled=lock_engine_specs,
-                                                      label_visibility="collapsed")
+                        up_service_yr = st.date_input('', value=safe_date(asset_row.get('KOC_SERVICE_YR')), key=f"up_service_{selected_gcode}", disabled=lock_engine_specs, label_visibility="collapsed")
 
                     # --- ROW 3 ---
-                    u3_lbl1, u3_val1, u3_lbl2, u2_val2, u3_lbl3, u3_val3 = st.columns([1.2, 2, 1.2, 2, 1.2, 2])
+                    u3_lbl1, u3_val1, u3_lbl2, u3_val2, u3_lbl3, u3_val3 = st.columns([1.2, 2, 1.2, 2, 1.2, 2])
                     with u3_lbl1:
                         st.markdown(LABEL_STYLE.format("PURPOSE:"), unsafe_allow_html=True)
                     with u3_val1:
                         PURPOSE_LIST = ['----', 'REPLACEMENT', 'NEW INSTALLATION', 'OFF-HIRE BACKLOAD']
                         db_purpose = str(asset_row.get('PURPOSE', '')).strip().upper()
-                        up_purpose = st.selectbox('', options=PURPOSE_LIST, index=PURPOSE_LIST.index(
-                            db_purpose) if db_purpose in PURPOSE_LIST else 0, key=f"up_purpose_{selected_gcode}",
-                                                  label_visibility="collapsed")
+                        up_purpose = st.selectbox('', options=PURPOSE_LIST, index=PURPOSE_LIST.index(db_purpose) if db_purpose in PURPOSE_LIST else 0, key=f"up_purpose_{selected_gcode}", label_visibility="collapsed")
                     with u3_lbl2:
                         st.markdown(LABEL_STYLE.format("APPR KVA:"), unsafe_allow_html=True)
-                    with u2_val2:
+                    with u3_val2:
                         try:
                             current_appr_kva = int(float(asset_row.get('APPR_KVA', 0)))
                         except:
                             current_appr_kva = 0
-                        up_appr_kva = st.number_input('', min_value=0, value=current_appr_kva,
-                                                      key=f"up_appr_{selected_gcode}", label_visibility="collapsed")
+                        up_appr_kva = st.number_input('', min_value=0, value=current_appr_kva, key=f"up_appr_{selected_gcode}", label_visibility="collapsed")
                     with u3_lbl3:
                         st.markdown(LABEL_STYLE.format("RUN HOURS:"), unsafe_allow_html=True)
                     with u3_val3:
@@ -892,8 +944,7 @@ else:
                             current_run_hrs = int(float(asset_row.get('RUN_HRS', 0)))
                         except:
                             current_run_hrs = 0
-                        up_run_hr = st.number_input('', min_value=0, value=current_run_hrs,
-                                                    key=f"up_run_hrs_{selected_gcode}", label_visibility="collapsed")
+                        up_run_hr = st.number_input('', min_value=0, value=current_run_hrs, key=f"up_run_hrs_{selected_gcode}", label_visibility="collapsed")
 
                     # --- ROW 4 ---
                     u4_lbl1, u4_val1, u4_lbl2, u4_val2, u4_lbl3, u4_val3 = st.columns([1.2, 2, 1.2, 2, 1.2, 2])
@@ -904,8 +955,7 @@ else:
                             current_crew = int(float(asset_row.get('CREW', 0)))
                         except:
                             current_crew = 0
-                        up_crew = st.number_input('', min_value=0, value=current_crew, step=1,
-                                                  key=f"up_crew_{selected_gcode}", label_visibility="collapsed")
+                        up_crew = st.number_input('', min_value=0, value=current_crew, step=1, key=f"up_crew_{selected_gcode}", label_visibility="collapsed")
                     with u4_lbl2:
                         st.markdown(LABEL_STYLE.format("GC FIELDS:"), unsafe_allow_html=True)
                     with u4_val2:
@@ -913,33 +963,24 @@ else:
                             current_gc = int(float(asset_row.get('GC', 0)))
                         except:
                             current_gc = 0
-                        up_gc = st.number_input('', min_value=0, value=current_gc, step=1,
-                                                key=f"up_gc_{selected_gcode}", label_visibility="collapsed")
+                        up_gc = st.number_input('', min_value=0, value=current_gc, step=1, key=f"up_gc_{selected_gcode}", label_visibility="collapsed")
                     with u4_lbl3:
                         st.markdown(LABEL_STYLE.format("MOVE DATE:"), unsafe_allow_html=True)
                     with u4_val3:
-                        up_move_date = st.date_input('', value=safe_date(asset_row.get('MOVE_DATE')),
-                                                     key=f"up_move_dt_{selected_gcode}", label_visibility="collapsed")
-
-
+                        up_move_date = st.date_input('', value=safe_date(asset_row.get('MOVE_DATE')), key=f"up_move_dt_{selected_gcode}", label_visibility="collapsed")
 
                     # --- ROW 5 (Remarks) ---
                     rem_lbl, rem_val = st.columns([1.2, 8.4])
                     with rem_lbl:
                         st.markdown(LABEL_STYLE.format("REMARKS:"), unsafe_allow_html=True)
                     with rem_val:
-                        up_reason = st.text_area("", value=str(asset_row.get('REASON', '')) if asset_row.get(
-                            'REASON') is not None else '', key=f"up_reason_{selected_gcode}",
-                                                 label_visibility="collapsed", height=52)
+                        up_reason = st.text_area("", value=str(asset_row.get('REASON', '')) if asset_row.get('REASON') is not None else '', key=f"up_reason_{selected_gcode}", label_visibility="collapsed", height=52)
 
-                    if st.form_submit_button("CLICK TO UPDATE ASSET", use_container_width=True,
-                                             key=f"up_btn_{selected_gcode}"):
+                    if st.form_submit_button("CLICK TO UPDATE ASSET", use_container_width=True, key=f"up_btn_{selected_gcode}"):
                         if not allow_submission:
-                            st.error(
-                                "❌ Action Blocked: You must resolve or acknowledge the Location Conflict before saving changes.")
+                            st.error("❌ Action Blocked: You must resolve or acknowledge the Location Conflict before saving changes.")
                         elif up_run_hr < current_run_hrs:
-                            st.error(
-                                f"❌ Updated hours ({up_run_hr:,}) cannot run lower than current data entries ({current_run_hrs:,} hrs).")
+                            st.error(f"❌ Updated hours ({up_run_hr:,}) cannot run lower than current data entries ({current_run_hrs:,} hrs).")
                         else:
                             try:
                                 before_q = supabase.table("ASSETS").select("*").eq('G-CODE', selected_gcode).execute()
@@ -948,14 +989,11 @@ else:
                                 old_snapshot = {}
 
                             updated_payload = {
-                                'TRANSFER_STATUS': up_transfer if up_transfer != '----' else old_snapshot.get(
-                                    'TRANSFER_STATUS'),
+                                'TRANSFER_STATUS': up_transfer if up_transfer != '----' else old_snapshot.get('TRANSFER_STATUS'),
                                 'FIELD': up_field if up_field != '----' else old_snapshot.get('FIELD'),
                                 'AREA': up_area if up_area != '----' else old_snapshot.get('AREA'),
-                                'TO_LOCATION': up_location if up_location != '----' else old_snapshot.get(
-                                    'TO_LOCATION'),
-                                'FROM_LOCATION': up_from_location if up_from_location != '----' else old_snapshot.get(
-                                    'FROM_LOCATION'),
+                                'TO_LOCATION': up_location if up_location != '----' else old_snapshot.get('TO_LOCATION'),
+                                'FROM_LOCATION': up_from_location if up_from_location != '----' else old_snapshot.get('FROM_LOCATION'),
                                 'SERIAL_NO': up_serial,
                                 'MODEL': up_model if up_model != '----' else old_snapshot.get('MODEL'),
                                 'TYPE': up_type if up_type != '----' else old_snapshot.get('TYPE'),
@@ -977,9 +1015,7 @@ else:
                                 after_q = supabase.table("ASSETS").select("*").eq('G-CODE', selected_gcode).execute()
                                 new_snapshot = after_q.data[0] if after_q.data else updated_payload
 
-                                log_audit_event(selected_gcode, "UPDATE", str(up_transfer),
-                                                f"Advanced runtime parameter metrics: {current_run_hrs:,} -> {up_run_hr:,} hrs.",
-                                                old_snapshot, new_snapshot)
+                                log_audit_event(selected_gcode, "UPDATE", str(up_transfer), f"Advanced runtime parameter metrics: {current_run_hrs:,} -> {up_run_hr:,} hrs.", old_snapshot, new_snapshot)
 
                                 st.success("Asset successfully synchronized across network registries!")
                                 st.cache_data.clear()
@@ -1055,6 +1091,10 @@ else:
                         st.error(f"Supabase Deletion Execution Error: {delete_err}")
             else:
                 st.info("No master record data currently loaded available to purge.")
+
+        # =====================================================================
+        # TAB 5: AUDIT LOG TRANSACTION REGISTRY REPORT
+        # =====================================================================
         with tab5:
             st.caption("📋 UPDATES REPORT FOR GENSET FIELD SECTIONS:")
             logs_df = get_audit_logs_df()
@@ -1092,22 +1132,18 @@ else:
                                   'KVA', 'From Location', 'To Location', 'Running Hours',
                                   'Reason', 'Login Credentials', 'Timestamp']
 
-                # 💡 1. Convert "Move Date" column to datetimes safely for range extraction
-                # Errors='coerce' turns missing/invalid dates ('—') safely into NaT (Not a Time)
+                # Clean datetime extraction layer to protect operators from object-to-date mismatch errors
                 temp_move_dates = pd.to_datetime(display_df['Move Date'], errors='coerce')
                 valid_move_dates = temp_move_dates.dropna()
 
-                # Fallback boundary check if there are no valid move dates in the system yet
                 import datetime
 
                 min_date = valid_move_dates.min().date() if not valid_move_dates.empty else datetime.date.today()
                 max_date = valid_move_dates.max().date() if not valid_move_dates.empty else datetime.date.today()
 
-                # 🛠️ Layout columns for filters
                 col1, col2 = st.columns([1, 1])
 
                 with col1:
-                    # 💡 2. Date Range Picker mapped to Move Date
                     date_range = st.date_input(
                         "📅 Filter by Move Date Range:",
                         value=(min_date, max_date),
@@ -1117,7 +1153,6 @@ else:
                     )
 
                 with col2:
-                    # 💡 3. Dynamic Unique Options for Multi-Select Filter
                     searchable_columns = ['Asset ID (G-CODE)', 'From Location', 'To Location', 'Model', 'Reason']
                     unique_options = set()
                     for col in searchable_columns:
@@ -1132,18 +1167,26 @@ else:
                         key="tab5_multi_search"
                     )
 
-                    # 🏃‍♂️ 4. Execution of Filters
                     filtered_df = display_df.copy()
 
                     # Step A: Apply Move Date Filter
                     if isinstance(date_range, (tuple, list)) and len(date_range) == 2:
                         start_date, end_date = date_range
 
-                        # Map back to our temporary datetime series to cleanly filter matching boundaries
-                        filtered_df = filtered_df[
-                            (temp_move_dates.dt.date >= start_date) &
-                            (temp_move_dates.dt.date <= end_date)
-                            ]
+                        # 1. Ensure we have a uniform Series of Pandas Datetime objects (with NaT for missing)
+                        temp_move_dates = pd.to_datetime(display_df['Move Date'], errors='coerce')
+
+
+                        # 2. Use a type-safe row-by-row lambda filter that skips NaT records automatically
+                        def is_date_in_range(val):
+                            if pd.isna(val):  # Gracefully catches NaT or None values
+                                return False
+                            row_date = val.date()
+                            return start_date <= row_date <= end_date
+
+
+                        # 3. Apply the mask cleanly
+                        filtered_df = filtered_df[temp_move_dates.apply(is_date_in_range)]
 
                     # Step B: Apply Multi-Select Global Search Filter
                     if selected_queries:
@@ -1155,16 +1198,21 @@ else:
                         )
                         filtered_df = filtered_df[mask]
 
-                    # Render Final Output Table
                 if not filtered_df.empty:
-                    designed_logs_df = filtered_df[target_columns].style.apply(style_zebra_rows, axis=None)
-                    st.dataframe(designed_logs_df, use_container_width=True, hide_index=True)
+                    # Strip downstream formatting elements using system style mixins
+                    try:
+                        designed_logs_df = filtered_df[target_columns].style.apply(style_zebra_rows, axis=None)
+                        st.dataframe(designed_logs_df, use_container_width=True, hide_index=True)
+                    except:
+                        st.dataframe(filtered_df[target_columns], use_container_width=True, hide_index=True)
                 else:
                     st.warning("No records matched your combined move date range and search criteria.")
-
             else:
                 st.info("No audit transactions logged inside tracking structures yet.")
 
+        # =====================================================================
+        # TAB 6: DIAGNOSTIC FLEET PROFILER & PIPELINE LOOKUP
+        # =====================================================================
         with tab6:
             st.caption(
                 "Real-time monitoring, diagnostic breakdowns, and location-based asset tracking for field operations.")
@@ -1188,16 +1236,13 @@ else:
                     return str(val).strip().encode('ascii', 'ignore').decode('ascii')
 
 
-                # Dynamic toggle configuration
                 search_mode = st.radio(
                     "Choose Search Vector:",
                     ["🔍 Search by G-CODE", "📍 Search by Location Pipeline"],
                     horizontal=True
                 )
 
-                # =========================================================================
-                # MODE A: SEARCH BY SPECIFIC G-CODE
-                # =========================================================================
+                # MODE A: SEARCH BY SPECIFIC G-CODE ENGINE
                 if search_mode == "🔍 Search by G-CODE":
                     default_choice = "--- SELECT A SPECIFIC G-CODE FOR FULL PROFILE ---"
                     all_gcodes = [default_choice] + sorted(fleet_df['G-CODE'].dropna().unique().tolist())
@@ -1205,11 +1250,21 @@ else:
                     if "fm_gcode_focus_dropdown" not in st.session_state:
                         st.session_state["fm_gcode_focus_dropdown"] = default_choice
 
+                    # Safeguard dropdown placement index rules if state handles clean re-entry loops
+                    current_sel = st.session_state["fm_gcode_focus_dropdown"]
+                    drop_idx = all_gcodes.index(current_sel) if current_sel in all_gcodes else 0
+
                     selected_gcode_focus = st.selectbox(
                         "SELECT G-CODE :",
                         options=all_gcodes,
-                        key="fm_gcode_focus_dropdown"
+                        index=drop_idx,
+                        key="fm_gcode_focus_dropdown_widget"
                     )
+
+                    # Track selection updates out of state wrapper
+                    if selected_gcode_focus != st.session_state["fm_gcode_focus_dropdown"]:
+                        st.session_state["fm_gcode_focus_dropdown"] = selected_gcode_focus
+                        st.rerun()
 
                     if selected_gcode_focus != default_choice:
                         isolated_asset_df = fleet_df[fleet_df['G-CODE'] == selected_gcode_focus]
@@ -1263,11 +1318,8 @@ else:
                                 st.session_state["fm_gcode_focus_dropdown"] = default_choice
                                 st.rerun()
 
-                # =========================================================================
-                # MODE B: SEARCH BY LOCATION PIPELINE (e.g., BG-0002)
-                # =========================================================================
+                # MODE B: SEARCH BY LOCATION PIPELINE (e.g., SITE SPECIFIC SEARCH)
                 elif search_mode == "📍 Search by Location Pipeline":
-                    # Consolidate unique location tags from both tracking vectors for clean reference lookup
                     raw_fields = fleet_df['FIELD'].dropna().unique().tolist() + fleet_df[
                         'TO_LOCATION'].dropna().unique().tolist()
                     unique_fields = sorted(
@@ -1293,7 +1345,6 @@ else:
                     )
 
                     if target_location:
-                        # Multi-column mapping logic check across fields or target coordinates
                         filtered_location_df = fleet_df[
                             fleet_df['FIELD'].astype(str).str.contains(target_location, case=False, na=False) |
                             fleet_df['TO_LOCATION'].astype(str).str.contains(target_location, case=False, na=False)
@@ -1332,6 +1383,8 @@ else:
                                         st.markdown(f"**Technician Logs:** {safe_str(p_notes_loc)}")
                         else:
                             st.warning(f"No active asset matches found for location criteria: `{target_location}`")
+            else:
+                st.info("No master record data currently loaded available to query.")
 
     # =====================================================================
     # 3. SETTINGS MATRIX PLATFORM
