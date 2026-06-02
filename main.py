@@ -224,51 +224,6 @@ if not st.session_state["authenticated"]:
     logo_file_path = "logo.pnp"
     img_base64 = get_base64_image(logo_file_path)
 
-    _, login_container_col, _ = st.columns([1, 1.8, 1])
-    with login_container_col:
-        st.markdown('<div class="login-card-container">', unsafe_allow_html=True)
-        st.markdown(
-            f"""
-            <div class="login-blue-header">
-                <div class="header-title-container">
-                    <img src="{img_base64}" class="header-logo" alt="Corporate Logo">
-                    <h2>Field Operations Digital Assets Monitoring System</h2>
-                </div>
-                <p>Enterprise Digital Asset Management Registry Identity Authentication Portal</p>
-            </div>
-            """, unsafe_allow_html=True
-        )
-        st.markdown('<div class="login-form-body">', unsafe_allow_html=True)
-
-        with st.form(key="gateway_security_login_form"):
-            email_input = st.text_input("Account Corporate Email Address:", placeholder="username@company.com").strip()
-            password_input = st.text_input("Account Secret Credentials Key:", type="password", placeholder="••••••••")
-            st.markdown("<br>", unsafe_allow_html=True)
-
-            if st.form_submit_button("VALIDATE SECURITY CREDENTIALS", use_container_width=True):
-                # ... standard authentication logic stays exactly the same ...
-                if not email_input or not password_input:
-                    st.error("❌ Credentials validation failure: Input parameters cannot be blank.")
-                else:
-                    with st.spinner("Processing authorization handshakes..."):
-                        try:
-                            auth_res = supabase.auth.sign_in_with_password(
-                                {"email": email_input, "password": password_input})
-                            target_uid = auth_res.user.id
-                            profile_query = supabase.table("user_profiles").select("role").eq("id",
-                                                                                              target_uid).execute()
-
-                            if profile_query.data:
-                                user_assigned_role = profile_query.data[0]["role"]
-                                st.session_state["authenticated"] = True
-                                st.session_state["auth_user_email"] = auth_res.user.email
-                                st.session_state["user_role"] = user_assigned_role
-                                should_rerun = True
-                            else:
-                                st.error("❌ Access Denied: Profile missing.")
-                        except Exception as auth_fail:
-                            st.error(f"❌ Authentication Denied: {str(auth_fail)}")
-        st.markdown('</div></div>', unsafe_allow_html=True)
 
 
     def get_base64_image(img_path):
